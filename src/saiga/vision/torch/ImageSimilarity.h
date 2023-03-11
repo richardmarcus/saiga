@@ -220,7 +220,8 @@ class LPIPS
         inputs.push_back(target);
         return module.forward(inputs).toTensor();
     }
-
+    void to(torch::Device d) { module.to(d); }
+    void eval() { module.eval(); }
     torch::jit::script::Module module;
 };
 
