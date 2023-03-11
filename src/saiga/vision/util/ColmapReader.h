@@ -150,6 +150,18 @@ void ColmapReader::Load(const std::string& dir)
             std::cout << "id: " << c.camera_id << " camera model: " << c.model_id << " ";
             switch (c.model_id)
             {
+                case 0:
+                {
+                    // Simple Pinhole
+                    // f, cx, cy
+                    std::array<double, 3> coeffs;
+                    file >> coeffs;
+                    c.K.fx = coeffs[0];
+                    c.K.fy = coeffs[0];
+                    c.K.cx = coeffs[1];
+                    c.K.cy = coeffs[2];
+                    break;
+                }
                 case 1:
                 {
                     // Pinhole

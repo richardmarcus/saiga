@@ -19,7 +19,6 @@
 // #    include <torchvision/models/vgg.h>
 
 #    endif
-#    include <torchvision/csrc/vision.h>
 
 namespace Saiga
 {
