@@ -19,9 +19,10 @@ struct TrainParams : public ParamsBase
 {
     SAIGA_PARAM_STRUCT(TrainParams);
     SAIGA_PARAM_STRUCT_FUNCTIONS;
-//    virtual void Params(Saiga::SimpleIni* ini, CLI::App* app) override
+    //    virtual void Params(Saiga::SimpleIni* ini, CLI::App* app) override
     template <class ParamIterator>
-    void Params(ParamIterator* it){
+    void Params(ParamIterator* it)
+    {
         SAIGA_PARAM(random_seed);
         SAIGA_PARAM(do_train);
         SAIGA_PARAM(do_eval);
@@ -65,8 +66,8 @@ struct TrainParams : public ParamsBase
 
     std::string output_file_type = ".jpg";
 
-    std::string name = "default";
-    std::string checkpoint_directory     = "";
+    std::string name                 = "default";
+    std::string checkpoint_directory = "";
 
     // ======== Dataset splitting ========
     std::string split_method     = "";
@@ -134,6 +135,23 @@ std::pair<std::vector<int>, std::vector<int>> TrainParams::Split(std::vector<int
     }
     if (split_method == "random")
     {
+    }
+    else if (split_method == "modulo")
+    {
+        int train_step = int(std::round(1.0 / train_factor));
+        std::cout << "Modulo stepsize: " << train_step << std::endl;
+        int total_n = all_indices.size();
+        for (int idx = 0; idx < total_n; ++idx)
+        {
+            if (idx % train_step)
+            {
+                test_indices.push_back(all_indices[idx]);
+            }
+            else
+            {
+                train_indices.push_back(all_indices[idx]);
+            }
+        }
     }
     else
     {

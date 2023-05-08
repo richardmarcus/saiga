@@ -121,17 +121,17 @@ struct IntrinsicsPinhole
         //   fx, s,  cx,
         //     0,  fy, cy,
         //     0,  0,  1;
-        k(0,0) = fx;
-        k(0,1) = s;
-        k(0,2) = cx;
+        k(0, 0) = fx;
+        k(0, 1) = s;
+        k(0, 2) = cx;
 
-        k(1,0) = 0;
-        k(1,1) = fy;
-        k(1,2) = cy;
+        k(1, 0) = 0;
+        k(1, 1) = fy;
+        k(1, 2) = cy;
 
-        k(2,0) = 0;
-        k(2,1) = 0;
-        k(2,2) = 1;
+        k(2, 0) = 0;
+        k(2, 1) = 0;
+        k(2, 2) = 1;
         return k;
     }
 
@@ -144,6 +144,18 @@ struct IntrinsicsPinhole
     // convert to eigen vector
     HD inline Vec5 coeffs() const { return {fx, fy, cx, cy, s}; }
     HD inline void coeffs(const Vec5& v) { (*this) = v; }
+
+    bool operator==(const IntrinsicsPinhole& other) const
+    {
+        bool is_equal = true;
+        is_equal &= (fx == other.fx);
+        is_equal &= (fy == other.fy);
+        is_equal &= (cx == other.cx);
+        is_equal &= (cy == other.cy);
+        is_equal &= (s == other.s);
+        return is_equal;
+    }
+    bool operator!=(const IntrinsicsPinhole& other) const { return !(other == *this); }
 };
 
 template <typename T>

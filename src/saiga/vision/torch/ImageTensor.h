@@ -30,10 +30,11 @@ at::Tensor ImageViewToTensor(ImageView<T> img, bool normalize = true)
 
     auto type = at::typeMetaToScalarType(caffe2::TypeMeta::Make<ScalarType>());
     at::Tensor tensor =
-        torch::from_blob(img.data, {img.h, img.w, c}, {(long)(img.pitchBytes / sizeof(ScalarType)), c, 1}, type);
+        torch::from_blob(img.data, {img.h, img.w, c}, {(long)(img.pitchBytes / sizeof(ScalarType)), c, 1}, type)
+            .clone();
 
     // In pytorch image tensors are usually represented as channel first.
-    tensor = tensor.permute({2, 0, 1}).clone();
+    tensor = tensor.permute({2, 0, 1});
 
     if (normalize)
     {
@@ -94,11 +95,12 @@ TemplatedImage<T> TensorToImage(at::Tensor tensor)
         tensor = 255.f * tensor;
         tensor = tensor.clamp(0, 255);
         tensor = tensor.toType(at::kByte);
-    } else if (tensor.dtype() == torch::kFloat32 && std::is_same<ScalarType, unsigned short>::value){
+    }
+    else if (tensor.dtype() == torch::kFloat32 && std::is_same<ScalarType, unsigned short>::value)
+    {
         tensor = 32767.f * tensor;
         tensor = tensor.clamp(-32767, 32767);
         tensor = tensor.toType(at::kShort);
-
     }
 
     // SAIGA_ASSERT(tensor.dtype() == torch::kByte);

@@ -78,7 +78,7 @@ class TemplatedImage : public Image
             std::cerr << "Loaded:   " << channels(type) << "/" << (int)elementType(type) << std::endl;
             std::cerr << "Template: " << channels(TType::type) << "/" << (int)elementType(TType::type) << std::endl;
             std::cerr << "Path:     " << path << std::endl;
-            SAIGA_EXIT_ERROR("Image Load failed!");
+            SAIGA_EXIT_ERROR("Image Load failed! " + path);
         }
         SAIGA_ASSERT(type == TType::type);
         return r;
