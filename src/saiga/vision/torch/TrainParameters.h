@@ -143,7 +143,7 @@ std::pair<std::vector<int>, std::vector<int>> TrainParams::Split(std::vector<int
         int total_n = all_indices.size();
         for (int idx = 0; idx < total_n; ++idx)
         {
-            if (idx % train_step)
+            if (idx % train_step == 0)
             {
                 test_indices.push_back(all_indices[idx]);
             }
