@@ -99,13 +99,43 @@ UnifiedMesh SplinePath::ProxyMesh()
 void SplinePath::PrintUserId()
 {
     std::vector<int> user_ids;
+    std::vector<Sophus::SE3d> custom_poses;
     for (auto& f : keyframes)
     {
         user_ids.push_back(f.user_index);
+        if (f.user_index < 0) custom_poses.push_back(f.pose);
     }
 
     std::cout << "SplinePath User ids:\n";
+
+
+    std::string result2  = "{";
+    auto begin           = user_ids.begin();
+    auto end             = user_ids.end();
+    int custom_poses_idx = 0;
+    while (begin != end)
+    {
+        bool own_pose = (*begin < 0);
+        if (own_pose)
+        {
+            auto pose = custom_poses[custom_poses_idx];
+            auto p    = pose.translation();
+            auto q    = pose.unit_quaternion();
+            result2 += "{{" + to_string(q.w()) + ", " + to_string(q.x()) + ", " + to_string(q.y()) + ", " +
+                       to_string(q.z()) + "}, {" + to_string(p(0)) + ", " + to_string(p(1)) + ", " + to_string(p(2)) +
+                       "}}";
+            ++custom_poses_idx;
+        }
+        ++begin;
+        if (begin != end && own_pose) result2 += ", ";
+    }
+    result2 += "}";
+
     std::cout << to_string_iterator(user_ids.begin(), user_ids.end()) << std::endl;
+    if (custom_poses_idx > 0)
+    {
+        std::cout << ", " << result2 << std::endl;
+    }
 }
 
 // void Interpolation::updateCurve()

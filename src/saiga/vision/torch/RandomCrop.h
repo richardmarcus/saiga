@@ -78,7 +78,8 @@ inline IntrinsicsPinholef RandomImageCrop(ivec2 image_size_input, ivec2 image_si
 inline std::vector<IntrinsicsPinholef> RandomImageCrop(int N, int tries_per_crop, ivec2 image_size_input,
                                                        ivec2 image_size_crop, bool translate_to_border,
                                                        bool random_translation, bool gaussian_sampling = false,
-                                                       vec2 min_max_zoom = vec2(1, 1))
+                                                       vec2 min_max_zoom                  = vec2(1, 1),
+                                                       int max_distance_from_image_center = -1)
 {
     std::vector<vec2> centers;
     std::vector<IntrinsicsPinholef> res;
@@ -108,7 +109,12 @@ inline std::vector<IntrinsicsPinholef> RandomImageCrop(int N, int tries_per_crop
 
             if (centers.empty()) dis = 0;
 
-            if (j == 0 || dis > best_dis)
+            // keep sample centers inside radius
+            bool inside_sampling_region = max_distance_from_image_center < 0 ||
+                                          length((c - vec2(image_size_input) / 2.f)) < max_distance_from_image_center;
+
+            // only take crop if inside sampling region or if no valid sample was collected until the end
+            if (((j == 0 || dis > best_dis) && inside_sampling_region) || (j == (tries_per_crop - 1) && best_dis == -1))
             {
                 best     = intr;
                 best_c   = c;

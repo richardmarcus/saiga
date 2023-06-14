@@ -36,8 +36,8 @@ inline SplineKeyframe mix(const SplineKeyframe& a, const SplineKeyframe& b, doub
     result.pose           = mix(a.pose, b.pose, alpha);
 
     result.user_data.resize(a.user_data.size());
-    for(int i =0; i < a.user_data.size(); ++i){
-
+    for (int i = 0; i < a.user_data.size(); ++i)
+    {
         result.user_data[i] = (1 - alpha) * a.user_data[i] + alpha * b.user_data[i];
     }
 
@@ -54,6 +54,11 @@ class SAIGA_CORE_API SplinePath
     Bspline<SplineKeyframe, double> spline;
 
     void Insert(const SplineKeyframe& p) { keyframes.push_back(p); }
+    void Insert(const SplineKeyframe& p, int pos)
+    {
+        SAIGA_ASSERT(pos >= 0);
+        keyframes.insert(keyframes.begin() + pos, p);
+    }
 
 
     std::vector<SplineKeyframe> Trajectory();

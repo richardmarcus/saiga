@@ -36,6 +36,8 @@ HD Vector<T, 3> ProjectOCam(Vector<T, 3> p, Vector<T, 5> coeff_affine, ArrayView
     // Coordinate system switch!!
     T x = p(1);
     T y = p(0);
+    // T x = p(0);
+    // T y = p(1);
     T z = -p(2);
 
     T norm2     = x * x + y * y;
@@ -47,6 +49,8 @@ HD Vector<T, 3> ProjectOCam(Vector<T, 3> p, Vector<T, 5> coeff_affine, ArrayView
 
     if (theta > cutoff)
     {
+        if (jacobian_point) jacobian_point->setZero();
+        if (jacobian_affine) jacobian_affine->setZero();
         return Vec3(0.f, 0.f, 0.f);
     }
 
@@ -68,8 +72,14 @@ HD Vector<T, 3> ProjectOCam(Vector<T, 3> p, Vector<T, 5> coeff_affine, ArrayView
 
     T np_x = x * invnorm * rho;
     T np_y = y * invnorm * rho;
-
-
+    /*
+        if (np_x > (1 - cutoff)*)
+        {
+            if (jacobian_point) jacobian_point->setZero();
+            if (jacobian_affine) jacobian_affine->setZero();
+            return Vec3(0.f, 0.f, 0.f);
+        }
+    */
     T image_x = np_x * c + np_y * d + cx;
     T image_y = np_x * e + np_y + cy;
 
@@ -323,10 +333,7 @@ struct OCam
 
     // The project/unproject functions are inspired by
     // https://github.com/stonear/OCamCalib/blob/master/ocam_functions.h
-    Vec2 Project(Vec3 p) const
-    {
-        return ProjectOCam<T>(p, AffineParams(), poly_world2cam).template head<2>();
-    }
+    Vec2 Project(Vec3 p) const { return ProjectOCam<T>(p, AffineParams(), poly_world2cam).template head<2>(); }
 
     Vec3 InverseProject(Vec2 p, T depth = 1) const
     {
