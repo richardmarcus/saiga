@@ -62,6 +62,7 @@ namespace Saiga
 {
 namespace CUDA
 {
+
 __device__ inline void cuda_assert_fail(const char* __assertion, const char* __file, unsigned int __line,
                                         const char* __function)
 {
