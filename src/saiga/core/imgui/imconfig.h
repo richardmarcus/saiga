@@ -24,6 +24,7 @@
 
 //---- Define attributes of all API symbols declarations, e.g. for DLL under Windows.
 #define IMGUI_API SAIGA_CORE_API
+#define IMGUI_IMPL_API SAIGA_LOCAL
 
 //---- Don't define obsolete functions/enums names. Consider enabling from time to time after updating to avoid using
 // soon-to-be obsolete function/names. #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
@@ -100,6 +101,9 @@
         w      = v[3];                   \
     }                                    \
     operator Saiga::quat() const { return Saiga::make_quat(x, y, z, w); }
+
+#define IMGUI_DEFINE_MATH_OPERATORS
+
 //---- Use 32-bit vertex indices (default is 16-bit) to allow meshes with more than 64K vertices. Render function needs
 // to support it. #define ImDrawIdx unsigned int
 

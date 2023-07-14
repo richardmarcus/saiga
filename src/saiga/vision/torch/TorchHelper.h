@@ -22,7 +22,18 @@ inline torch::Tensor CenterCrop2D(torch::Tensor x, int border_size)
 
 // Center crops the tensor x to target size.
 // Used for example in unets if the input is not a power of 2, because we lose some pixels after downsampling
-inline torch::Tensor CenterCrop2D(torch::Tensor x, torch::IntArrayRef target_size)
+inline torch::Tensor CenterCrop2D(torch::Tensor x, std::vector<int64_t> target_size)
+{
+    // [b, c, h, w]
+    SAIGA_ASSERT(x.dim() == 4);
+
+    int diff_h = int(x.size(2) - target_size[2]) / 2;
+    int diff_w = int(x.size(3) - target_size[3]) / 2;
+
+    return x.slice(2, diff_h, diff_h + target_size[2]).slice(3, diff_w, diff_w + target_size[3]);
+}
+
+inline torch::Tensor CenterCrop2D(torch::Tensor x, c10::IntArrayRef target_size)
 {
     // [b, c, h, w]
     SAIGA_ASSERT(x.dim() == 4);
@@ -49,9 +60,9 @@ inline torch::Tensor CenterEmplace(torch::Tensor src, torch::Tensor target)
     return ref_copy;
 }
 
-inline std::vector<long> IndexToCoordinate(long index, std::vector<long> sizes)
+inline std::vector<int64_t> IndexToCoordinate(int64_t index, std::vector<int64_t> sizes)
 {
-    std::vector<long> result(sizes.size());
+    std::vector<int64_t> result(sizes.size());
     for (int d = sizes.size() - 1; d >= 0; --d)
     {
         result[d] = index % sizes[d];
@@ -76,7 +87,7 @@ inline std::string TensorInfo(at::Tensor t)
     }
 
     auto type = t.dtype();
-    if (t.numel() < 1000L * 1000 * 500)
+    if (t.numel() < int64_t(1000) * 1000 * 500)
     {
         if (t.dtype() == at::kFloat || t.dtype() == at::kHalf)
         {
@@ -85,11 +96,16 @@ inline std::string TensorInfo(at::Tensor t)
     }
 
     // double mi   = t.min().item().toDouble();
-
-    auto [mi_t, mi_ind_t] = t.view({-1}).min(0);
-    double mi             = mi_t.item<double>();
-    long mi_ind           = mi_ind_t.item<long>();
-    auto mi_coords        = IndexToCoordinate(mi_ind, t.sizes().vec());
+    double mi      = 0;
+    int64_t mi_ind = 0;
+    std::vector<int64_t> mi_coords;
+    if (t.is_contiguous())
+    {
+        auto [mi_t, mi_ind_t] = t.view({-1}).min(0);
+        mi                    = mi_t.item<double>();
+        mi_ind                = mi_ind_t.item<int64_t>();
+        mi_coords             = IndexToCoordinate(mi_ind, t.sizes().vec());
+    }
 
     double ma   = t.max().item().toDouble();
     double mean = 0;
@@ -130,7 +146,7 @@ inline void PrintTensorInfo(at::Tensor t)
     std::cout << TensorInfo(t) << std::endl;
 }
 
-
+#ifndef TINY_TORCH
 inline void PrintModelParams(torch::nn::Module module)
 {
     Table tab({40, 25, 10, 15});
@@ -199,7 +215,7 @@ inline torch::nn::AnyModule NormFromString(const std::string& str, int channels)
 
 inline torch::nn::AnyModule ActivationFromString(const std::string& str, float beta = 2.f)
 {
-    if (str == "id" || str.empty())
+    if (str == "id" || str == "none" || str.empty())
     {
         return torch::nn::AnyModule(torch::nn::Identity());
     }
@@ -321,5 +337,6 @@ inline void UpdateLR(torch::optim::Optimizer* optimizer, double factor)
         }
     }
 }
+#endif
 
 }  // namespace Saiga

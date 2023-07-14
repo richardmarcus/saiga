@@ -3,6 +3,9 @@
 
 #include "saiga/vision/torch/torch.h"
 
+#ifdef TINY_TORCH
+#include "glog/logging.h"
+#endif
 
 #if TORCH_VERSION_MAJOR > 1 || TORCH_VERSION_MINOR >= 11
 // This is a helper function so that we can use
@@ -21,6 +24,13 @@ inline Saiga::vec2* at::TensorBase::data_ptr<Saiga::vec2>() const
     CHECK_EQ(size(dim() - 1), 2);
     CHECK_EQ(stride(dim() - 1), 1);
     return (Saiga::vec2*)data_ptr<float>();
+}
+template <>
+inline Saiga::ivec2* at::TensorBase::data_ptr<Saiga::ivec2>() const
+{
+    CHECK_EQ(size(dim() - 1), 2);
+    CHECK_EQ(stride(dim() - 1), 1);
+    return (Saiga::ivec2*)data_ptr<int>();
 }
 template <>
 inline Saiga::Quat* at::TensorBase::data_ptr<Saiga::Quat>() const

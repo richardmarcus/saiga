@@ -37,6 +37,10 @@ struct SAIGA_OPENGL_API RenderingParameters
     bool userViewPort = false;
 
 
+    bool createRendererMainMenuItem = true;
+    bool createLogMainMenuItem      = true;
+    bool createLightingMainMenuItem = true;
+
 
     /**
      *  Reads all paramters from the given config file.
@@ -49,7 +53,7 @@ struct SAIGA_OPENGL_API RenderingParameters
 class SAIGA_OPENGL_API OpenGLRenderer : public RendererBase
 {
    public:
-    OpenGLRenderer(OpenGLWindow& window);
+    OpenGLRenderer(OpenGLWindow& window, bool rendererMainMenuItem = true, bool logMainMenuItem = true);
     virtual ~OpenGLRenderer();
 
 
@@ -63,7 +67,7 @@ class SAIGA_OPENGL_API OpenGLRenderer : public RendererBase
 
     // Converts pixel coordinates of the window (which you get from glfw)
     // to local coordinates inside the 3DViewport.
-    // Uses 'viewport_offset'.
+    // Uses 'viewport_offset'.d
     //
     // This can be for example be used to generate eye-rays
     ivec2 WindowCoordinatesToViewport(ivec2 window_coords) { return window_coords - viewport_offset; }
@@ -71,7 +75,7 @@ class SAIGA_OPENGL_API OpenGLRenderer : public RendererBase
 
     virtual void renderImgui() override;
 
-    std::shared_ptr<ImGui_GL_Renderer> imgui;
+    std::shared_ptr<ImGuiRenderer> imgui;
     std::shared_ptr<GLTimerSystem> timer;
 
     int outputWidth = -1, outputHeight = -1;
@@ -100,7 +104,6 @@ class SAIGA_OPENGL_API OpenGLRenderer : public RendererBase
    protected:
     void PrepareImgui(bool compute_viewport_size = true);
     void FinalizeImgui();
-
 };
 
 inline void setViewPort(const ViewPort& vp)

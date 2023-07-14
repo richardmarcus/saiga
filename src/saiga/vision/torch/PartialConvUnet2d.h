@@ -322,7 +322,8 @@ class UpsampleBlockImpl : public torch::nn::Module
         }
         else
         {
-            return torch::cat({below, CenterCrop2D(skip, below.sizes())}, 1);
+            return torch::cat(
+                {below, CenterCrop2D(skip, std::vector<int64_t>(below.sizes().begin(), below.sizes().end()))}, 1);
         }
     }
 

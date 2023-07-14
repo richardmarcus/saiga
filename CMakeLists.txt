@@ -60,6 +60,7 @@ OptionsHelper(SAIGA_DEBIAN_BUILD "Saiga is currently build into a Debian Package
 set(SAIGA_CUDA_ARCH "" CACHE STRING "Compile for a specific CUDA Arch. If empty the systems Arch is used. Example: \"7.5;8.0;8.6;8.6+PTX\"")
 
 OptionsHelper(SAIGA_BUILD_GLFW   "Build the GLFW as a submodule" ON)
+OptionsHelper(SAIGA_GLFW_STATIC   "Use static linking of the glfw library" OFF)
 
 OptionsHelper(SAIGA_MODULE_CORE   "Build the core module, if possible." ON)
 OptionsHelper(SAIGA_MODULE_OPENGL "Build the opengl module, if possible." ON)
@@ -67,9 +68,13 @@ OptionsHelper(SAIGA_MODULE_VULKAN "Build the vulkan module, if possible." ON)
 OptionsHelper(SAIGA_MODULE_VISION "Build the vision module, if possible." ON)
 OptionsHelper(SAIGA_MODULE_CUDA   "Build the cuda module, if possible." ON)
 
+
+OptionsHelper(SAIGA_WITH_GTEST "Include the GTEST library, if possible." ON)
+OptionsHelper(SAIGA_WITH_ASSIMP "Include the ASSIMP library, if possible." ON)
 OptionsHelper(SAIGA_WITH_MKL "Include the MKL library, if possible." OFF)
 OptionsHelper(SAIGA_WITH_FFMPEG "Include the FFMPEG library, if possible." ON)
 OptionsHelper(SAIGA_WITH_FREETYPE "Include the Freetype library, if possible." ON)
+OptionsHelper(SAIGA_WITH_FREEIMAGE "Include the Freeimage library, if possible." ON)
 OptionsHelper(SAIGA_WITH_YAMLCPP "Include the yaml-cpp library, if possible." ON)
 OptionsHelper(SAIGA_WITH_OPENAL "Include the OPENAL and other Sound libraries, if possible." ON)
 OptionsHelper(SAIGA_WITH_OPENMESH "Include the openmesh library, if possible." ON)
@@ -104,14 +109,14 @@ set(EXTERNAL_DIR ${PROJECT_SOURCE_DIR}/External)
 set(SAIGA_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Make to cache variable so it can be overwritten by the user of saiga
-set(SAIGA_RUNTIME_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/bin" CACHE PATH "Output dir of executables and dynamic libraries")
-set(SAIGA_LIBRARY_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/lib" CACHE PATH "Output dir of static libraries")
-set(SAIGA_ARCHIVE_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/lib" CACHE PATH "Output dir of static libraries")
+#set(SAIGA_RUNTIME_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/bin" CACHE PATH "Output dir of executables and dynamic libraries")
+#set(SAIGA_LIBRARY_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/lib" CACHE PATH "Output dir of static libraries")
+#set(SAIGA_ARCHIVE_OUTPUT_DIRECTORY "${SAIGA_OUTPUT_DIR}/lib" CACHE PATH "Output dir of static libraries")
 
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  "${SAIGA_RUNTIME_OUTPUT_DIRECTORY}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  "${SAIGA_LIBRARY_OUTPUT_DIRECTORY}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY  "${SAIGA_ARCHIVE_OUTPUT_DIRECTORY}")
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY  "${SAIGA_RUNTIME_OUTPUT_DIRECTORY}")
+#set(CMAKE_LIBRARY_OUTPUT_DIRECTORY  "${SAIGA_LIBRARY_OUTPUT_DIRECTORY}")
+#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY  "${SAIGA_ARCHIVE_OUTPUT_DIRECTORY}")
 
 
 

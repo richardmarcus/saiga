@@ -12,7 +12,9 @@
 #include "TorchHelper.h"
 #include "torch/torch.h"
 
-#include <torch/script.h>
+#ifndef TINY_TORCH
+#    include <torch/script.h>
+#endif
 
 namespace Saiga
 {
@@ -24,11 +26,17 @@ namespace Saiga
 template <typename T>
 at::Tensor ImageViewToTensor(ImageView<T> img, bool normalize = true)
 {
+    if (!img.valid()) return torch::Tensor();
     using ScalarType = typename ImageTypeTemplate<T>::ChannelType;
     constexpr int c  = channels(ImageTypeTemplate<T>::type);
 
 
+#ifdef TINY_TORCH
+    throw std::runtime_error("not implemented");
+    torch::ScalarType type;
+#else
     auto type = at::typeMetaToScalarType(caffe2::TypeMeta::Make<ScalarType>());
+#endif
     at::Tensor tensor =
         torch::from_blob(img.data, {img.h, img.w, c}, {(long)(img.pitchBytes / sizeof(ScalarType)), c, 1}, type)
             .clone();
@@ -41,7 +49,7 @@ at::Tensor ImageViewToTensor(ImageView<T> img, bool normalize = true)
         // Convert to float
         if constexpr (!std::is_same<ScalarType, float>::value)
         {
-            tensor = tensor.toType(at::kFloat);
+            tensor = tensor.to(at::kFloat);
         }
 
         // Normalize to [0,1]
@@ -84,13 +92,13 @@ TemplatedImage<T> TensorToImage(at::Tensor tensor)
     tensor = tensor.permute({1, 2, 0});
     tensor = tensor.cpu().contiguous();
 
-    if (tensor.dtype() == torch::kFloat16 || tensor.dtype() == torch::kFloat64)
+    if (tensor.dtype() == torch::kHalf || tensor.dtype() == torch::kDouble)
     {
-        tensor = tensor.to(torch::kFloat32);
+        tensor = tensor.to(torch::kFloat);
     }
 
     // Convert to byte
-    if (tensor.dtype() == torch::kFloat32 && std::is_same<ScalarType, unsigned char>::value)
+    if (tensor.dtype() == torch::kFloat && std::is_same<ScalarType, unsigned char>::value)
     {
         tensor = 255.f * tensor;
         tensor = tensor.clamp(0, 255);
@@ -117,7 +125,7 @@ TemplatedImage<T> TensorToImage(at::Tensor tensor)
     return img;
 }
 
-
+#ifndef TINY_TORCH
 /**
  * Save the tensor so it can be loaded from python and C++.
  * For Python loading just use
@@ -143,7 +151,7 @@ inline bool SaveTensor(at::Tensor t, const std::string& file)
     fout.close();
     return true;
 }
-
+#endif
 
 // Converts a list of images into a 2D grid of images.
 // Useful for displaying multiple images at once.
@@ -209,6 +217,7 @@ inline torch::Tensor ImageBatchToImageRow(torch::Tensor image_batch)
     return image_batch;
 }
 
+#ifndef TINY_TORCH
 /**
  * RGB image normalization of a 3 channel float-tensor using the Pytorch standart weights.
  */
@@ -251,6 +260,7 @@ inline torch::Tensor Filter2dIndependentChannels(torch::Tensor x, Matrix<float, 
     auto res        = torch::conv2d(x, K, {}, 1, padding, 1, x.size(1));
     return res;
 }
+#endif
 
 #ifdef SAIGA_USE_EIGEN
 

@@ -19,8 +19,11 @@ glfw_Window::glfw_Window(WindowParameters windowParameters, OpenGLParameters ope
     : OpenGLWindow(windowParameters, openglParameters)
 {
     create();
-    main_menu.AddItem(
-        "Saiga", "Window", [this]() { showImgui = !showImgui; }, 295, "F6");
+    if (windowParameters.createWindowMenuItem)
+    {
+        main_menu.AddItem(
+            "Saiga", "Window", [this]() { showImgui = !showImgui; }, 295, "F6");
+    }
 }
 
 glfw_Window::~glfw_Window()
@@ -71,7 +74,7 @@ void glfw_Window::getMaxResolution(int* width, int* height)
     *height = mode[count - 1].height;
 }
 
-std::shared_ptr<ImGui_GL_Renderer> glfw_Window::createImGui()
+std::shared_ptr<ImGuiRenderer> glfw_Window::createImGui()
 {
     if (windowParameters.imguiParameters.enable)
     {
