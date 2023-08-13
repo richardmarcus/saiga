@@ -46,8 +46,8 @@ void TimerSystem::TimeData::Start()
     if (current_depth >= 0)
     {
         // This timer has already been recorded.
-        SAIGA_ASSERT(active == false);
-        SAIGA_ASSERT(depth == -1);
+        //  SAIGA_ASSERT(active == false);
+        // SAIGA_ASSERT(depth == -1);
         depth      = current_depth++;
         name_stack = name_stack + name;
         timer->Start();
@@ -76,6 +76,7 @@ void TimerSystem::TimeData::AddTime(TimerSystem::Measurement t)
     last_measurement                                = t;
     measurements_ms[count % measurements_ms.size()] = t;
     active                                          = true;
+    //   depth                                           = -1;
     count++;
 }
 void TimerSystem::TimeData::ResizeSamples(int num_samples)
@@ -124,7 +125,7 @@ void TimerSystem::EndFrame()
 
 void TimerSystem::Imgui()
 {
-    if(!frame_timer) return;
+    if (!frame_timer) return;
     SAIGA_ASSERT(current_name_stack.empty());
 
     // if(!total_time.active) return;

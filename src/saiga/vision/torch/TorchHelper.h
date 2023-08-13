@@ -17,7 +17,7 @@ inline torch::Tensor CenterCrop2D(torch::Tensor x, int border_size)
 {
     // [b, c, h, w]
     SAIGA_ASSERT(x.dim() == 4);
-    return x.slice(2, border_size, x.size(2) - 2 * border_size).slice(3, border_size, x.size(3) - 2 * border_size);
+    return x.slice(2, border_size, x.size(2) - border_size).slice(3, border_size, x.size(3) - border_size);
 }
 
 // Center crops the tensor x to target size.
