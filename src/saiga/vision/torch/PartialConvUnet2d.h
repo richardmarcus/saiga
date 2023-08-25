@@ -425,7 +425,7 @@ struct MultiScaleUnet2dParams : public ParamsBase
     std::string pooling = "average";
 
     std::string network_version      = "MultiScaleUnet2d";
-    std::vector<int> filters_network = {4, 8, 16, 32, 64};
+    std::vector<int> filters_network = {4, 8, 16, 32, 64, 128, 256, 512};
 };
 
 
