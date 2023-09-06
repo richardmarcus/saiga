@@ -391,6 +391,9 @@ struct MultiScaleUnet2dParams : public ParamsBase
         SAIGA_PARAM(channels_last);
         SAIGA_PARAM(half_float);
 
+
+        SAIGA_PARAM(sh_bands);
+
         SAIGA_PARAM(upsample_mode);
         SAIGA_PARAM(norm_layer_down);
         SAIGA_PARAM(norm_layer_up);
@@ -410,6 +413,7 @@ struct MultiScaleUnet2dParams : public ParamsBase
     int num_output_channels     = 3;
     int feature_factor          = 4;
     int num_layers              = 5;
+    int sh_bands                = 4;
     bool add_input_to_filters   = false;
     bool channels_last          = false;
     bool half_float             = false;
