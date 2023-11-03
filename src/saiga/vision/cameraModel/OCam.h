@@ -161,6 +161,223 @@ HD Vector<T, 3> ProjectOCam(Vector<T, 3> p, Vector<T, 5> coeff_affine, ArrayView
     return Vec3(image_y, image_x, dist);
 }
 
+
+template <typename T>
+HD Vector<T, 4> ProjectOCamAndApproxSize(Vector<T, 3> p, float point_size, Vector<T, 5> coeff_affine,
+                                         ArrayView<const T> coeff_poly, float cutoff = 10000,
+                                         Matrix<T, 2, 3>* jacobian_point      = nullptr,
+                                         Matrix<T, 2, 5>* jacobian_affine     = nullptr,
+                                         Matrix<T, 1, 1>* jacobian_point_size = nullptr)
+{
+    using Vec4 = Vector<T, 4>;
+
+    T c  = coeff_affine(0);
+    T d  = coeff_affine(1);
+    T e  = coeff_affine(2);
+    T cx = coeff_affine(3);
+    T cy = coeff_affine(4);
+
+    // Coordinate system switch!!
+    T x = p(1);
+    T y = p(0);
+    // T x = p(0);
+    // T y = p(1);
+    T z = -p(2);
+
+    T norm2     = x * x + y * y;
+    T norm      = sqrt(norm2);
+    T invnorm   = 1 / norm;
+    T z_by_norm = z * invnorm;
+    T theta     = atan(z_by_norm);
+    T dist      = p.norm();
+
+    if (theta > cutoff)
+    {
+        if (jacobian_point) jacobian_point->setZero();
+        if (jacobian_affine) jacobian_affine->setZero();
+        return Vec4(0.f, 0.f, 0.f, 0.f);
+    }
+
+
+
+    T rho = coeff_poly[0];
+    T t_i = 1;
+
+    // for point size projection:
+    //   ignore scaling via c d e (this only corrects slight missalignments
+    //   ignore cx cy offset (only range, not position)
+    //   interpret point size as translation towards (0,0) in view space
+    bool splat_across_zero = (sqrt(x * x + y * y) - point_size) < 0;
+    T p_size_radial        = sqrt(x * x + y * y) - point_size;
+    T inv_p_size_rad       = T(1) / p_size_radial;
+    T z_by_p_size          = z * inv_p_size_rad;
+    T theta_ps             = atan(z_by_p_size);
+
+    T rho_ps = coeff_poly[0];
+    T t_i_ps = 1;
+
+    for (int i = 1; i < coeff_poly.size(); i++)
+    {
+        t_i *= theta;
+        rho += t_i * coeff_poly[i];
+
+        t_i_ps *= theta_ps;
+        rho_ps += t_i_ps * coeff_poly[i];
+    }
+
+    // both projected radii subtracted is the (approximate) radius
+    float point_size_projected = abs(rho - rho_ps);
+
+    if (splat_across_zero) point_size_projected = abs(rho + rho_ps);
+
+
+    if (norm < 1e-6 && abs(p_size_radial) < 1e-6)
+    {
+        if (jacobian_point) jacobian_point->setZero();
+        if (jacobian_affine) jacobian_affine->setZero();
+        if (jacobian_point_size) jacobian_point_size->setZero();
+        return Vec4(cx, cy, dist, 0.f);
+    }
+
+    T np_x = x * invnorm * rho;
+    T np_y = y * invnorm * rho;
+
+    T image_x = np_x * c + np_y * d + cx;
+    T image_y = np_x * e + np_y + cy;
+
+    if (abs(p_size_radial) < 1e-6)
+    {
+        if (jacobian_point_size) jacobian_point_size->setZero();
+        return Vec4(image_y, image_x, dist, rho);
+    }
+
+    if (point_size_projected < 1e-6)
+    {
+        if (jacobian_point_size) jacobian_point_size->setZero();
+        return Vec4(image_y, image_x, dist, 1e-6);
+    }
+
+    if (jacobian_point_size)
+    {
+        auto& J = *jacobian_point_size;
+
+        // dPsprojabs_dPSproj = (rho - rho_ps) / abs(rho - rho_ps) [or + if splat_across_zero]
+        // dPSproj_drhoPS = -1 [ or +1 if splat_across_zero]
+        T dPsprojabs_drhoPS = -1 * (rho - rho_ps) / abs(rho - rho_ps);
+        if (splat_across_zero) dPsprojabs_drhoPS = (rho + rho_ps) / abs(rho + rho_ps);
+
+        // rho w.r.t theta
+        T drhoPS_dthetaPS = 0;
+        T t_i_ps_grad     = 1;
+        for (int i = 1; i < coeff_poly.size(); i++)
+        {
+            drhoPS_dthetaPS += i * coeff_poly[i] * t_i_ps_grad;
+            t_i_ps_grad *= theta_ps;
+        }
+
+        // dThetaPS_dzByPSize = 1 / (z_by_p_size*z_by_p_size+1)
+        T dThetaPS_dzByPSize = T(1) / (z_by_p_size * z_by_p_size + 1);
+
+        // dzByPSize_dInvPSizeRad = z
+        T dzByPSize_dInvPSizeRad = z;
+
+        // dInvPSizeRad_dPSizeRadial = 1 / (p_size_radial*p_size_radial)
+        T dInvPSizeRad_dPSizeRadial = T(1) / (p_size_radial * p_size_radial);
+
+        // dPSizeRadial_dPointsize = -1
+        T dPSizeRadial_dPointsize = T(-1);
+
+        J(0, 0) = dPsprojabs_drhoPS * drhoPS_dthetaPS * dThetaPS_dzByPSize * dzByPSize_dInvPSizeRad *
+                  dInvPSizeRad_dPSizeRadial * dPSizeRadial_dPointsize;
+    }
+
+    if (norm < 1e-6)
+    {
+        if (jacobian_point) jacobian_point->setZero();
+        if (jacobian_affine) jacobian_affine->setZero();
+        return Vec4(cx, cy, dist, rho_ps);
+    }
+
+    if (jacobian_point)
+    {
+        auto& J = *jacobian_point;
+
+        // rho w.r.t theta
+        T drho_dtheta = 0;
+        T t_i_grad    = 1;
+        for (int i = 1; i < coeff_poly.size(); i++)
+        {
+            drho_dtheta += i * coeff_poly[i] * t_i_grad;
+            t_i_grad *= theta;
+        }
+
+        // theta w.r.t x y z
+        T xyz_norm_sqr = norm2 + z * z;
+        T dtheta_dx    = (-1.0 * x * z_by_norm) / (xyz_norm_sqr);
+        T dtheta_dy    = (-1.0 * y * z_by_norm) / (xyz_norm_sqr);
+        T dtheta_dz    = norm / (xyz_norm_sqr);
+
+        // rho w.r.t x y z
+        T drho_dx = drho_dtheta * dtheta_dx;
+        T drho_dy = drho_dtheta * dtheta_dy;
+        T drho_dz = drho_dtheta * dtheta_dz;
+
+        // uv_raw w.r.t x y z
+        // J(0, 0)  = (norm - x * x / norm) / norm2 * rho + drho_dx * x / norm;
+        J(0, 0) = (invnorm - x * x / (norm * norm2)) * rho + drho_dx * x / norm;
+        J(0, 1) = (-1.0 * x * y / norm) / norm2 * rho + drho_dy * x / norm;
+        J(0, 2) = drho_dz * x / norm;
+        J(1, 0) = (-1.0 * x * y / norm) / norm2 * rho + drho_dx * y / norm;
+        J(1, 1) = (norm - y * y / norm) / norm2 * rho + drho_dy * y / norm;
+        J(1, 2) = drho_dz * y / norm;
+
+        // Affine transformation
+        Matrix<T, 2, 2> affine;
+        affine(0, 0) = c;
+        affine(0, 1) = d;
+        affine(1, 0) = e;
+        affine(1, 1) = 1;
+        J            = affine * J;
+
+        if (true)
+        {
+            // swap coordinates and negate z
+            auto a = J(0, 0);
+            auto b = J(0, 1);
+            auto c = J(0, 2);
+
+            J(0, 0) = J(1, 1);
+            J(0, 1) = J(1, 0);
+            J(0, 2) = J(1, 2);
+
+            J(1, 0) = b;
+            J(1, 1) = a;
+            J(1, 2) = c;
+
+            J(0, 2) = -J(0, 2);
+            J(1, 2) = -J(1, 2);
+        }
+    }
+
+    if (jacobian_affine)
+    {
+        auto& J = *jacobian_affine;
+        J.setZero();
+
+        // Warning this already contains the coordinate transform!!!
+        J(1, 0) = np_x;
+        J(1, 1) = np_y;
+        J(0, 2) = np_x;
+        J(0, 4) = 1;
+        J(1, 3) = 1;
+    }
+
+    // Again coordinate system switch!!
+    return Vec4(image_y, image_x, dist, point_size_projected);
+}
+
+
+
 template <typename T>
 HD Vector<T, 3> UnprojectOCam(Vector<T, 2> p, T distance_to_cam, Vector<T, 5> coeff_affine,
                               ArrayView<const T> coeff_poly)
