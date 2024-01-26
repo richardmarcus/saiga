@@ -11,6 +11,7 @@
 #include "saiga/vision/VisionTypes.h"
 
 #include <map>
+#include <array>
 
 namespace Saiga
 {
