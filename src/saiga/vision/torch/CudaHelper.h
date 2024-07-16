@@ -6,12 +6,13 @@
 
 #pragma once
 #include "TorchHelper.h"
+
 #include "cuda_runtime.h"
 
 
 #ifdef __CUDACC__
 
-#ifndef TINY_TORCH
+#    ifndef TINY_TORCH
 // Converts the torch half type to the CUDA build-in half type
 // Only available from cuda files
 template <>
@@ -19,7 +20,7 @@ inline __half* at::TensorBase::data_ptr<__half>() const
 {
     return (__half*)data_ptr<torch::Half>();
 }
-#endif
+#    endif
 #endif
 
 namespace Saiga
@@ -27,7 +28,8 @@ namespace Saiga
 template <typename T, int dim, typename IndexType = int64_t, bool CUDA = true>
 struct StaticDeviceTensor
 {
-    T* __restrict__ data;
+    T* __restrict__ data = nullptr;
+
     IndexType sizes[dim];
     IndexType strides[dim];
 
@@ -35,7 +37,7 @@ struct StaticDeviceTensor
 
     StaticDeviceTensor(torch::Tensor t)
     {
-        if (!t.defined() || t.numel() == 0)
+        if (!t.defined())
         {
             data = nullptr;
             for (int i = 0; i < dim; ++i)
@@ -62,32 +64,82 @@ struct StaticDeviceTensor
         }
     }
 
+    template <typename G>
+    HD StaticDeviceTensor<G, dim, IndexType, CUDA> cast()
+    {
+        StaticDeviceTensor<G, dim, IndexType, CUDA> result;
+        result.data = reinterpret_cast<G*>(data);
+
+        for (int i = 0; i < dim - 1; ++i)
+        {
+            result.sizes[i] = sizes[i];
+
+            if constexpr (sizeof(G) > sizeof(T))
+            {
+                // CHECK_EQ(strides[i] % (sizeof(G) / sizeof(T)), 0);
+                result.strides[i] = strides[i] / (sizeof(G) / sizeof(T));
+            }
+            else
+            {
+                result.strides[i] = strides[i] * (sizeof(T) / sizeof(G));
+            }
+        }
+
+        if constexpr (sizeof(G) > sizeof(T))
+        {
+            // CHECK_EQ(strides[dim - 1], 1);
+            // CHECK_EQ(result.sizes[dim - 1] % (sizeof(G) / sizeof(T)), 0);
+            result.sizes[dim - 1]   = sizes[dim - 1] / (sizeof(G) / sizeof(T));
+            result.strides[dim - 1] = 1;
+        }
+        else
+        {
+            result.sizes[dim - 1]   = sizes[dim - 1] * (sizeof(T) / sizeof(G));
+            result.strides[dim - 1] = 1;
+        }
+
+        return result;
+    }
+
     HD inline IndexType size(IndexType i)
     {
         CUDA_KERNEL_ASSERT(i < dim);
         return sizes[i];
     }
 
-    // same as get but with bounds checks
-    HD inline T& At(std::array<IndexType, dim> indices)
+    HD inline int64_t numel()
+    {
+        int64_t count = 1;
+        for (int i = 0; i < dim; ++i)
+        {
+            count *= sizes[i];
+        }
+        return count;
+    }
+
+    HD inline IndexType Offset(std::array<IndexType, dim> indices)
     {
         CUDA_KERNEL_ASSERT(data);
         // The array offset is always 64 bit and does not depend on the index type
-        int64_t index = 0;
+        IndexType index = 0;
         for (int i = 0; i < dim; ++i)
         {
             CUDA_KERNEL_ASSERT(indices[i] >= 0 && indices[i] < sizes[i]);
-            index += (int64_t)strides[i] * (int64_t)indices[i];
+            index += strides[i] * indices[i];
         }
-        return data[index];
+        return index;
     }
 
     HD inline T& Get(std::array<IndexType, dim> indices)
     {
-        int64_t index = 0;
+        IndexType index = 0;
         for (int i = 0; i < dim; ++i)
         {
-            index += (int64_t)strides[i] * (int64_t)indices[i];
+#if defined(CUDA_DEBUG) && defined(__CUDACC__)
+            CUDA_KERNEL_ASSERT(indices[i] >= 0);
+            CUDA_KERNEL_ASSERT(indices[i] < sizes[i]);
+#endif
+            index += strides[i] * indices[i];
         }
         return data[index];
     }
@@ -112,6 +164,24 @@ struct StaticDeviceTensor
     {
         static_assert(dim >= 2, "must have atleast 2 dimensions to be an image");
         return ImageDimensions(sizes[dim - 2], sizes[dim - 1]);
+    }
+
+    HD inline bool defined() { return data != nullptr; }
+
+    void Print()
+    {
+        std::cout << "StaticDeviceTensor<" << typeid(T).name() << "," << dim << "," << typeid(IndexType).name() << ","
+                  << CUDA << "> [";
+        for (int i = 0; i < dim; ++i)
+        {
+            std::cout << sizes[i] << ",";
+        }
+        std::cout << "] [";
+        for (int i = 0; i < dim; ++i)
+        {
+            std::cout << strides[i] << ",";
+        }
+        std::cout << "]\n";
     }
 };
 
@@ -201,6 +271,4 @@ struct ConstReadOnlyStaticDeviceTensor
         return ImageDimensions(sizes[dim - 2], sizes[dim - 1]);
     }
 };
-
-
 }  // namespace Saiga

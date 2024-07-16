@@ -19,3 +19,15 @@
 [submodule "submodules/glog"]
 	path = submodules/glog
 	url = ../../google/glog.git
+[submodule "submodules/libzip"]
+	path = submodules/libzip
+	url = ../../pkurth/libzip.git
+[submodule "submodules/TinyTIFF"]
+	path = submodules/TinyTIFF
+	url = ../../jkriege2/TinyTIFF.git
+[submodule "submodules/libtiff"]
+	path = submodules/libtiff
+	url = https://gitlab.com/libtiff/libtiff.git
+[submodule "submodules/zstd"]
+	path = submodules/zstd
+	url = ../../facebook/zstd.git

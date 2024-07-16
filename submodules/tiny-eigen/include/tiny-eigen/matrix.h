@@ -256,13 +256,13 @@ class MatrixBase
                         // std::swap(m(column, j), m(big, j));
                         // std::swap(mat(column, j), mat(big, j));
 
-                        auto tmp1 = m(column, j);
+                        auto tmp1    = m(column, j);
                         m(column, j) = m(big, j);
-                        m(big, j) = tmp1;
+                        m(big, j)    = tmp1;
 
-                        auto tmp2 = mat(column, j);
+                        auto tmp2      = mat(column, j);
                         mat(column, j) = mat(big, j);
-                        mat(big, j) = tmp2;
+                        mat(big, j)    = tmp2;
                     }
                 }
             }
@@ -337,10 +337,7 @@ class MatrixBase
         return true;
     }
 
-    HD bool operator!=(SameMatrix other) const
-    {
-        return !((*this) == other);
-    }
+    HD bool operator!=(SameMatrix other) const { return !((*this) == other); }
 
     HD bool operator==(SameMatrix other) const
     {
@@ -443,6 +440,8 @@ template <typename _Scalar, int _Rows, int _Cols, int _Options = ColMajor>
 class Array : public MatrixBase<Array<_Scalar, _Rows, _Cols, _Options>>
 {
    public:
+    static constexpr int Rows = _Rows;
+    static constexpr int Cols = _Cols;
     using Scalar              = _Scalar;
     using SameMatrix          = Array<_Scalar, _Rows, _Cols, _Options>;
     static constexpr int Size = _Rows * _Cols;
@@ -546,10 +545,12 @@ class Array : public MatrixBase<Array<_Scalar, _Rows, _Cols, _Options>>
     _Scalar _data[Size];
 };
 
-template <typename _Scalar, int _Rows, int _Cols, int _Options>
+template <typename _Scalar, int _Rows, int _Cols, int _Options = ColMajor>
 class MatrixView : public MatrixBase<MatrixView<_Scalar, _Rows, _Cols, _Options>>
 {
    public:
+    static constexpr int Rows = _Rows;
+    static constexpr int Cols = _Cols;
     using Scalar              = _Scalar;
     using SameMatrix          = MatrixView<_Scalar, _Rows, _Cols, _Options>;
     static constexpr int Size = _Rows * _Cols;
@@ -561,9 +562,25 @@ class MatrixView : public MatrixBase<MatrixView<_Scalar, _Rows, _Cols, _Options>
     {
     }
 
+
+    // assignment of two views should copy the data from to the other
+    HD SameMatrix& operator=(const SameMatrix& other)
+    {
+        for (int i = 0; i < rows(); ++i)
+        {
+            for (int j = 0; j < cols(); ++j)
+            {
+                (*this)(i, j) = other(i, j);
+            }
+        }
+        return *this;
+    }
+
     template <typename OtherType>
     HD SameMatrix& operator=(const MatrixBase<OtherType>& other)
     {
+        static_assert(Rows == OtherType::Rows && Cols == OtherType::Cols,
+                      "Assignment is only allowed with the same dimensions.");
         for (int i = 0; i < rows(); ++i)
         {
             for (int j = 0; j < cols(); ++j)
@@ -597,6 +614,8 @@ template <typename _Scalar, int _Rows, int _Cols, int _Options = ColMajor>
 class Matrix : public MatrixBase<Matrix<_Scalar, _Rows, _Cols, _Options>>
 {
    public:
+    static constexpr int Rows = _Rows;
+    static constexpr int Cols = _Cols;
     using Scalar              = _Scalar;
     using SameMatrix          = Matrix<_Scalar, _Rows, _Cols, _Options>;
     static constexpr int Size = _Rows * _Cols;
@@ -639,6 +658,8 @@ class Matrix : public MatrixBase<Matrix<_Scalar, _Rows, _Cols, _Options>>
     template <typename OtherType>
     HD Matrix(const MatrixBase<OtherType>& other)
     {
+        static_assert(Rows == OtherType::Rows && Cols == OtherType::Cols,
+                      "Assignment is only allowed with the same dimensions.");
         for (int i = 0; i < rows(); ++i)
         {
             for (int j = 0; j < cols(); ++j)
@@ -765,9 +786,9 @@ class Matrix : public MatrixBase<Matrix<_Scalar, _Rows, _Cols, _Options>>
     HD const Scalar& z() const { return _data[2]; }
     HD const Scalar& w() const { return _data[3]; }
 
-    HD int rows() const { return _Rows; }
-    HD int cols() const { return _Cols; }
-    HD int size() const { return Size; }
+    constexpr int rows() const { return _Rows; }
+    constexpr int cols() const { return _Cols; }
+    constexpr int size() const { return Size; }
 
     template <typename T>
     HD Matrix<T, _Rows, _Cols, _Options> cast() const
