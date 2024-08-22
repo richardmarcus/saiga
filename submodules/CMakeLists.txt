@@ -16,6 +16,8 @@ message("Adding Submodule glog")
 set(WITH_GFLAGS OFF CACHE INTERNAL "")
 set(WITH_GTEST OFF CACHE INTERNAL "")
 set(WITH_UNWIND OFF CACHE INTERNAL "")
+set(BUILD_TESTING OFF CACHE INTERNAL "")
+
 add_subdirectory(glog)
 SET(SAIGA_USE_GLOG 1 PARENT_SCOPE)
 message("=================================")
@@ -58,6 +60,13 @@ target_link_libraries(zlib INTERFACE zlibstatic)
 message("=================================")
 
 
+message("=================================")
+message("Adding Submodule zstd")
+set(ZSTD_BUILD_SHARED OFF CACHE INTERNAL "")
+set(ZSTD_BUILD_STATIC ON CACHE INTERNAL "")
+set(BUILD_SHARED_LIBS OFF)
+add_subdirectory(zstd/build/cmake/)
+
 if (SAIGA_BUILD_GLFW)
     message("=================================")
     message("Adding Submodule glfw")
@@ -81,6 +90,8 @@ if (SAIGA_BUILD_GLFW)
     #    PackageHelperTarget(glfw GLFW_FOUND)
     message("=================================")
 endif ()
+
+
 
 message("=================================")
 message("Adding Submodule libPNG")
@@ -137,7 +148,7 @@ endif()
 if(SAIGA_WITH_GTEST)
     message("=================================")
     message("Adding Submodule googletest")
-    set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
+    set(BUILD_SHARED_LIBS ON CACHE INTERNAL "")
     add_subdirectory(googletest)
     set(BUILD_SHARED_LIBS ON CACHE INTERNAL "")
     PackageHelperTarget(gtest GTEST_FOUND)
@@ -146,4 +157,73 @@ if(SAIGA_WITH_GTEST)
     message("=================================")
 endif()
 
+
+
+
+if(SAIGA_WITH_LIBZIP)
+    message("=================================")
+    message("Adding Submodule libzip")
+
+    set(BUILD_SHARED_LIBS OFF)
+
+    # Disable tools
+    set(BUILD_TOOLS OFF CACHE INTERNAL "")
+    set(BUILD_REGRESS OFF CACHE INTERNAL "")
+    set(BUILD_EXAMPLES OFF CACHE INTERNAL "")
+    set(BUILD_DOC OFF CACHE INTERNAL "")
+
+
+    add_subdirectory(libzip)
+    set_property(TARGET zip PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+    SET(SAIGA_USE_LIBZIP 1 PARENT_SCOPE)
+    message("=================================")
+endif()
+
+
+if(SAIGA_WITH_LIBTIFF)
+    message("=================================")
+    message("Adding Submodule libtiff")
+
+    set(tiff-tools OFF CACHE INTERNAL "")
+    set(tiff-tools-unsupported OFF CACHE INTERNAL "")
+    set(tiff-tests OFF CACHE INTERNAL "")
+    set(tiff-contrib OFF CACHE INTERNAL "")
+    set(tiff-docs OFF CACHE INTERNAL "")
+    set(tiff-deprecated OFF CACHE INTERNAL "")
+    set(tiff-install OFF CACHE INTERNAL "")
+    
+    macro(install)
+    endmacro()
+    
+    add_subdirectory(libtiff)
+
+    macro(install)
+        _install(${ARGN})
+    endmacro()
+    
+    set_property(TARGET tiff PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set_property(TARGET tiffxx PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+    # this exe can't be disable -> write it to a different dir
+    set_target_properties(tiff_mkg3states PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin_tiff")
+
+    SET(SAIGA_USE_LIBTIFF 1 PARENT_SCOPE)
+    message("=================================")
+endif()
+
+if(SAIGA_WITH_TINYTIFF)
+    message("=================================")
+    message("Adding Submodule TinyTIFF")
+
+    set(TinyTIFF_BUILD_SHARED_LIBS OFF)
+    set(TinyTIFF_BUILD_STATIC_LIBS ON)
+    set(TinyTIFF_BUILD_TESTS OFF)
+
+    add_subdirectory(TinyTIFF)
+    set_property(TARGET TinyTIFF PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+    SET(SAIGA_USE_TINYTIFF 1 PARENT_SCOPE)
+    message("=================================")
+endif()
 

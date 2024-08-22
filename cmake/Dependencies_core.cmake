@@ -21,7 +21,10 @@ PackageHelperTarget(glfw GLFW_FOUND)
 PackageHelperTarget(zlibstatic ZLIB_FOUND)
 PackageHelperTarget(png_static PNG_FOUND)
 PackageHelperTarget(assimp ASSIMP_FOUND)
+PackageHelperTarget(zip LIBZIP_FOUND)
 PackageHelperTarget(glog GLOG_FOUND)
+PackageHelperTarget(TIFF::CXX LIBTIFF_FOUND)
+PackageHelperTarget(TinyTIFF TINYTIFF_FOUND)
 
 #openmp
 if (SAIGA_CXX_WCLANG)
@@ -88,6 +91,14 @@ if (SAIGA_WITH_FREEIMAGE)
     if (FREEIMAGE_FOUND)
         SET(SAIGA_USE_FREEIMAGE 1)
     endif ()
+endif ()
+
+if (SAIGA_WITH_LIBTIFF)
+    SET(SAIGA_USE_LIBTIFF 1 PARENT_SCOPE)
+endif ()
+
+if (SAIGA_WITH_TINYTIFF)
+    SET(SAIGA_USE_TINYTIFF 1 PARENT_SCOPE)
 endif ()
 
 

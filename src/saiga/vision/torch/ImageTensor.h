@@ -30,13 +30,12 @@ at::Tensor ImageViewToTensor(ImageView<T> img, bool normalize = true)
     using ScalarType = typename ImageTypeTemplate<T>::ChannelType;
     constexpr int c  = channels(ImageTypeTemplate<T>::type);
 
-
 #ifdef TINY_TORCH
-    throw std::runtime_error("not implemented");
-    torch::ScalarType type;
+    auto type = torch::CppTypeToScalarType<ScalarType>::value;
 #else
     auto type = at::typeMetaToScalarType(caffe2::TypeMeta::Make<ScalarType>());
 #endif
+
     at::Tensor tensor =
         torch::from_blob(img.data, {img.h, img.w, c}, {(long)(img.pitchBytes / sizeof(ScalarType)), c, 1}, type)
             .clone();
@@ -110,9 +109,12 @@ TemplatedImage<T> TensorToImage(at::Tensor tensor)
         tensor = tensor.clamp(-32767, 32767);
         tensor = tensor.toType(at::kShort);
     }
-
-    // SAIGA_ASSERT(tensor.dtype() == torch::kByte);
-
+    else if (tensor.dtype() == torch::kFloat && std::is_same<ScalarType, unsigned short>::value)
+    {
+        tensor = 32767.f * tensor;
+        tensor = tensor.clamp(-32767, 32767);
+        tensor = tensor.to(at::kShort);
+    }
 
     int h = tensor.size(0);
     int w = tensor.size(1);
@@ -242,6 +244,7 @@ inline at::Tensor UnNormalizeRGB(at::Tensor x)
     return x;
 }
 
+#endif
 
 template <int rows, int cols>
 inline torch::Tensor FilterTensor(Matrix<float, rows, cols> kernel)
@@ -260,7 +263,6 @@ inline torch::Tensor Filter2dIndependentChannels(torch::Tensor x, Matrix<float, 
     auto res        = torch::conv2d(x, K, {}, 1, padding, 1, x.size(1));
     return res;
 }
-#endif
 
 #ifdef SAIGA_USE_EIGEN
 

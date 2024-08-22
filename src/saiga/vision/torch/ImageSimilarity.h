@@ -7,6 +7,27 @@
 #pragma once
 #include "ImageTensor.h"
 #include "TorchHelper.h"
+#include "saiga/core/math/math.h"
+
+
+template <typename T, int RADIUS>
+Saiga::Matrix<T, RADIUS * 2 + 1, RADIUS * 2 + 1> gaussianBlurKernel2d_tinyeigen(int radius, T sigma)
+{
+    SAIGA_ASSERT(radius == RADIUS);
+    Saiga::Matrix<T, RADIUS * 2 + 1, RADIUS * 2 + 1> kernel;
+    T ivar2 = 1.0f / (2.0f * sigma * sigma);
+    for (int y = -radius; y <= radius; y++)
+    {
+        for (int x = -radius; x <= radius; x++)
+        {
+            float d2                       = x * x + y * y;
+            kernel(y + radius, x + radius) = std::exp(-d2 * ivar2);
+        }
+    }
+    // normalize
+    T s = kernel.array().sum();
+    return kernel / s;
+}
 
 #ifndef TINY_TORCH
 
@@ -39,24 +60,6 @@ class PSNRImpl : public torch::nn::Module
 TORCH_MODULE(PSNR);
 
 
-template <typename T, int RADIUS>
-Matrix<T, RADIUS * 2 + 1, RADIUS * 2 + 1> gaussianBlurKernel2d_tinyeigen(int radius, T sigma)
-{
-    SAIGA_ASSERT(radius == RADIUS);
-    Matrix<T, RADIUS * 2 + 1, RADIUS * 2 + 1> kernel;
-    T ivar2 = 1.0f / (2.0f * sigma * sigma);
-    for (int y = -radius; y <= radius; y++)
-    {
-        for (int x = -radius; x <= radius; x++)
-        {
-            float d2                       = x * x + y * y;
-            kernel(y + radius, x + radius) = std::exp(-d2 * ivar2);
-        }
-    }
-    // normalize
-    T s = kernel.array().sum();
-    return kernel / s;
-}
 
 // Structured Similarity Index (SSIM)
 // https://en.wikipedia.org/wiki/Structural_similarity
