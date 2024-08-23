@@ -13,7 +13,7 @@ namespace Saiga
 {
 
 
-
+#define IM_PI                           3.14159265358979323846f
 // Forward declaration of SphericalParameters
 template <typename T>
 struct SphericalParameters;
@@ -357,19 +357,19 @@ struct SphericalParameters : IntrinsicsPinhole<T>
     // f is lidar fov, c is offset, both in rad/pi, s = center_offset
     T fx = 2, fy = 33.8/180;
     T cx = 0, cy = 0.08;
-    T s = 0.16;
+    T s = 0.0 ;
 
     //HD inline SphericalParameters() {}
     HD inline SphericalParameters(T fx, T fy, T cx, T cy, T s) : fx(fx), fy(fy), cx(cx), cy(cy), s(s) {}
-    //HD inline SphericalParameters(const Vec4& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)), s(v(4)) {}
+    HD inline SphericalParameters(const Vec5& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)), s(v(4)) {}
   // Constructor to initialize SphericalParameters from IntrinsicsPinhole
     HD inline SphericalParameters(const IntrinsicsPinhole<T>& pinhole)
         : SphericalParameters(pinhole.toSpherical()) {}
     // from 3d to 2d for spherical coordinates -> azimuth and elevation
     HD inline Vec2 project(const Vec3& X) const
     {
-        T azimuth   = atan2(-X(1), X(0)) / (fx * math::pi) + cx;
-        T elevation = -atan2(X(2) - s, sqrt(X(0) * X(0) + X(1) * X(1))) / (fy * math::pi) + cy;
+        T azimuth   = atan2(-X(1), X(0)) / (fx * IM_PI) + cx;
+        T elevation = -atan2(X(2) - s, sqrt(X(0) * X(0) + X(1) * X(1))) / (fy * IM_PI) + cy;
         return {azimuth, elevation};
     }
 
@@ -386,8 +386,8 @@ struct SphericalParameters : IntrinsicsPinhole<T>
     // unprojection here is from azimuth elevation to world
     HD inline Vec3 unproject(const Vec2& ip, T depth) const
     {
-        T azimuth   = (ip(0) - cx) * fx * math::pi;
-        T elevation = -(ip(1) - cy) * fy * math::pi + s;
+        T azimuth   = (ip(0) - cx) * fx * IM_PI;
+        T elevation = -(ip(1) - cy) * fy * IM_PI + s;
         T x         = depth * cos(azimuth) * cos(elevation);
         T y         = -depth * sin(azimuth) * cos(elevation);
         T z         = depth * sin(elevation) + s;

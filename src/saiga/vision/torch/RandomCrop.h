@@ -186,7 +186,7 @@ inline IntrinsicsPinholef RandomCylinderCrop(ivec2 image_size_input, ivec2 image
 
     K_crop.cx = delta(0)/image_size_input(0);
     K_crop.cy = delta(1)/image_size_input(1);
-    K_crop.s = 0.16;
+    K_crop.s = 0.0 ;
 
     return K_crop;
 }
