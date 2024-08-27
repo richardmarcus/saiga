@@ -47,6 +47,7 @@ struct IntrinsicsPinhole
     HD inline IntrinsicsPinhole(const Mat3& K) : fx(K(0, 0)), fy(K(1, 1)), cx(K(0, 2)), cy(K(1, 2)), s(K(0, 1)) {}
 
 
+    /*
     // Conversion method to SphericalParameters
     HD inline SphericalParameters<T> toSpherical() const {
         T fx_spherical = this->fx;  
@@ -56,7 +57,7 @@ struct IntrinsicsPinhole
         T s_spherical  = this->s;   // Use the skew directly
 
         return SphericalParameters<T>(fx_spherical, fy_spherical, cx_spherical, cy_spherical, s_spherical);
-    }
+    }*/
 
     HD inline IntrinsicsPinhole<T> inverse() const
     {
@@ -104,11 +105,9 @@ struct IntrinsicsPinhole
     HD inline Vec2 toPano(const Vec3& p) const
     {
 
-        float s_fixed = 0.16;
         float azimuth = 0.5- atan2f(-p(2), p(0))/(fx*M_PI)+ cx;
-        //p_shifted
         Vec3 p_shifted = p;
-        p_shifted(1) = -(p(1)-s_fixed);
+        p_shifted(1) = -(p(1));
         float elevation = asinf(normalize(p_shifted)(1)) / (fy * M_PI) - cy +1;
         return {azimuth, elevation};
 
@@ -120,9 +119,7 @@ struct IntrinsicsPinhole
     {
         const Vec2 image_point = toPano(p);
 
-        float s_fixed  = 0.16;
         Vec3 p_shifted = p;
-        p_shifted(1) -= s_fixed;
         float norm = sqrt(p_shifted(0) * p_shifted(0) + p_shifted(1) * p_shifted(1) + p_shifted(2) * p_shifted(2));
         float normalized_p1 = (p(1)) / norm;
         if (J_point)
@@ -368,8 +365,8 @@ struct SphericalParameters : IntrinsicsPinhole<T>
     // from 3d to 2d for spherical coordinates -> azimuth and elevation
     HD inline Vec2 project(const Vec3& X) const
     {
-        T azimuth   = atan2(-X(1), X(0)) / (fx * IM_PI) + cx;
-        T elevation = -atan2(X(2) - s, sqrt(X(0) * X(0) + X(1) * X(1))) / (fy * IM_PI) + cy;
+        T azimuth   = atan2(-X(1), X(0)) / (fx * M_PI) + cx;
+        T elevation = -atan2(X(2) - s, sqrt(X(0) * X(0) + X(1) * X(1))) / (fy * M_PI) + cy;
         return {azimuth, elevation};
     }
 
@@ -386,8 +383,8 @@ struct SphericalParameters : IntrinsicsPinhole<T>
     // unprojection here is from azimuth elevation to world
     HD inline Vec3 unproject(const Vec2& ip, T depth) const
     {
-        T azimuth   = (ip(0) - cx) * fx * IM_PI;
-        T elevation = -(ip(1) - cy) * fy * IM_PI + s;
+        T azimuth   = (ip(0) - cx) * fx * M_PI;
+        T elevation = -(ip(1) - cy) * fy * M_PI + s;
         T x         = depth * cos(azimuth) * cos(elevation);
         T y         = -depth * sin(azimuth) * cos(elevation);
         T z         = depth * sin(elevation) + s;
