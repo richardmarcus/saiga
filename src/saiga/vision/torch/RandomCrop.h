@@ -191,7 +191,7 @@ inline IntrinsicsPinholef RandomCylinderCrop(ivec2 image_size_input, ivec2 image
     return K_crop;
 }
 
-
+//not used because it is the same as RandomImageCrop TODO_C
 inline std::vector<IntrinsicsPinholef> RandomCylinderCrop(int N, int tries_per_crop, ivec2 image_size_input,
                                                        ivec2 image_size_crop, bool translate_to_border,
                                                        bool random_translation, bool gaussian_sampling = false,

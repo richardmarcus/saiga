@@ -101,64 +101,6 @@ struct IntrinsicsPinhole
 
     [[nodiscard]] HD inline IntrinsicsPinhole<T> scale(T s) const { return IntrinsicsPinhole<T>(Vec5(coeffs() * s)); }
     
-    
-    HD inline Vec2 toPano(const Vec3& p) const
-    {
-
-        float azimuth = 0.5- atan2f(-p(2), p(0))/(fx*M_PI)+ cx;
-        Vec3 p_shifted = p;
-        p_shifted(1) = -(p(1));
-        float elevation = asinf(normalize(p_shifted)(1)) / (fy * M_PI) - cy +1;
-        return {azimuth, elevation};
-
-    }
-
-
-
-    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 3>* J_point, Matrix<float, 2, 5>* J_K) const
-    {
-        const Vec2 image_point = toPano(p);
-
-        Vec3 p_shifted = p;
-        float norm = sqrt(p_shifted(0) * p_shifted(0) + p_shifted(1) * p_shifted(1) + p_shifted(2) * p_shifted(2));
-        float normalized_p1 = (p(1)) / norm;
-        if (J_point)
-        {
-
-
-            // Partial derivatives of azimuth with respect to p
-            (*J_point)(0, 0) = (1 / (fx * M_PI)) * (p_shifted(2) / (p_shifted(0) * p_shifted(0) + p_shifted(2) * p_shifted(2)));  // ∂azimuth/∂p_shifted(0)
-            (*J_point)(0, 1) = 0;                                                         // ∂azimuth/∂p_shifted(1)
-            (*J_point)(0, 2) = (1 / (fx * M_PI)) * (p_shifted(0) / (p_shifted(0) * p_shifted(0) + p_shifted(2) * p_shifted(2)));  // ∂azimuth/∂p_shifted(2)
-            
-            // Partial derivatives of elevation with respect to p
-                    // norm = sqrt(p_shifted(0)^2 + p_shifted(1)^2 + p_shifted(2)^2)
-            (*J_point)(1, 0) = (-1 / (fy * M_PI)) * (p_shifted(0) * p_shifted(1) / (norm * norm * norm));  // ∂elevation/∂p_shifted(0)
-            (*J_point)(1, 1) = (1 / (fy * M_PI)) * ((p_shifted(0) * p_shifted(0) + p_shifted(2) * p_shifted(2)) / (norm * norm * norm)); // ∂elevation/∂p_shifted(1)
-            (*J_point)(1, 2) = (-1 / (fy * M_PI)) * (p_shifted(1) * p_shifted(2) / (norm * norm * norm));  // ∂elevation/∂p_shifted(2)
-        }
-
-        if (J_K)
-        {
-            // Partial derivatives of azimuth with respect to intrinsic parameters
-            (*J_K)(0, 0) = atan2f(-p_shifted(2), p_shifted(0)) / (fx * fx * M_PI);  // ∂azimuth/∂fx
-            (*J_K)(0, 1) = 0;                                       // ∂azimuth/∂fy (not relevant)
-            (*J_K)(0, 2) = 1;                                       // ∂azimuth/∂cx
-            (*J_K)(0, 3) = 0;                                       // ∂azimuth/∂cy (not relevant)
-            (*J_K)(0, 4) = 0;                                       // ∂azimuth/∂skew (not relevant)
-
-            // Partial derivatives of elevation with respect to intrinsic parameters
-
-            (*J_K)(1, 0) = 0;                                       // ∂elevation/∂fx (not relevant)
-            (*J_K)(1, 1) = -asinf(normalized_p1) / (fy * fy * M_PI); // ∂elevation/∂fy
-            (*J_K)(1, 2) = 0;                                       // ∂elevation/∂cx (not relevant)
-            (*J_K)(1, 3) = -1;                                      // ∂elevation/∂cy
-            (*J_K)(1, 4) = 0;                                       // ∂elevation/∂skew (not relevant)
-        }
-
-        return image_point;
-    }
-
 
 
     HD inline Vec2 normalizedToImage(const Vec2& p, Mat2* J_point, Matrix<T, 2, 5>* J_K) const
@@ -348,61 +290,102 @@ std::ostream& operator<<(std::ostream& strm, const StereoCamera4Base<T> intr)
 // intrinsics are used to convert between pixel coordinates and world coordinates
 // inverse intrinsics do world to pixel
 template <typename T>
-struct SphericalParameters : IntrinsicsPinhole<T> 
+struct SphericalParameters
 {
-    using Vec5 = Eigen::Matrix<T, 5, 1>;
+    using Vec4 = Eigen::Matrix<T, 4, 1>;
     // f is lidar fov, c is offset, both in rad/pi, s = center_offset
     T fx = 2, fy = 33.8/180;
-    T cx = 0, cy = 0.08;
-    T s = 0.0 ;
+    T cx = 0, cy = 0.0801;
 
-    //HD inline SphericalParameters() {}
-    HD inline SphericalParameters(T fx, T fy, T cx, T cy, T s) : fx(fx), fy(fy), cx(cx), cy(cy), s(s) {}
-    HD inline SphericalParameters(const Vec5& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)), s(v(4)) {}
-  // Constructor to initialize SphericalParameters from IntrinsicsPinhole
-    HD inline SphericalParameters(const IntrinsicsPinhole<T>& pinhole)
-        : SphericalParameters(pinhole.toSpherical()) {}
-    // from 3d to 2d for spherical coordinates -> azimuth and elevation
-    HD inline Vec2 project(const Vec3& X) const
+    HD inline SphericalParameters() {}
+    HD inline SphericalParameters(T fx, T fy, T cx, T cy) : fx(fx), fy(fy), cx(cx), cy(cy) {}
+    HD inline SphericalParameters(const Vec4& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)) {}
+
+
+    HD inline Vec4 coeffs() const { return {fx, fy, cx, cy}; }
+    HD inline void coeffs(const Vec4& v) { (*this) = v; }
+    template <typename G>
+    HD inline SphericalParameters<G> cast() const
     {
-        T azimuth   = atan2(-X(1), X(0)) / (fx * M_PI) + cx;
-        T elevation = -atan2(X(2) - s, sqrt(X(0) * X(0) + X(1) * X(1))) / (fy * M_PI) + cy;
+        return {(G)fx, (G)fy, (G)cx, (G)cy};
+    }
+
+    //works if we just want to apply zoom and offset, just leave out s
+    HD inline Vec2 normalizedToImage(const Vec2& p) const { return {fx * p(0)+ cx, fy * p(1) + cy}; }
+
+    HD inline Vec2 normalizedToImage(const Vec2& p, Mat2* J_point, Matrix<T, 2, 5>* J_K) const
+    {
+        const Vec2 image_point = normalizedToImage(p);
+
+        if (J_point)
+        {
+            (*J_point)(0, 0) = fx;
+            (*J_point)(0, 1) = s;
+            (*J_point)(1, 0) = 0;
+            (*J_point)(1, 1) = fy;
+        }
+
+        if (J_K)
+        {
+            (*J_K)(0, 0) = p(0);
+            (*J_K)(0, 1) = 0;
+            (*J_K)(0, 2) = 1;
+            (*J_K)(0, 3) = 0;
+            (*J_K)(0, 4) = p(1);
+
+            (*J_K)(1, 0) = 0;
+            (*J_K)(1, 1) = p(1);
+            (*J_K)(1, 2) = 0;
+            (*J_K)(1, 3) = 1;
+            (*J_K)(1, 4) = 0;
+        }
+
+        return image_point;
+    }
+    HD inline Vec2 toPano(const Vec3& p) const
+    {
+
+        float azimuth = 0.5- atan2f(-p(2), p(0))/(fx*M_PI)+ cx;
+        Vec3 p_shifted = p;
+        p_shifted(1) = -(p(1));
+        float elevation = asinf(normalize(p_shifted)(1)) / (fy * M_PI) - cy +1;
         return {azimuth, elevation};
+
     }
 
-    HD inline Vec2 operator*(const Vec3& X) const { return project(X); }
-
-    // same as above, but keep the z value in the output
-    HD inline Vec3 project3(const Vec3& X) const
+    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 2>* J_point, Matrix<float, 2, 5>* J_K) const
     {
-        Vec2 p = project(X);
-        // TODO_C maybe not Z but dist(xyz)?
-        return {p(0), p(1), X(2)};
+        const Vec2 image_point = toPano(p);
+
+        Vec3 p_shifted = p;
+        float norm = sqrt(p_shifted(0) * p_shifted(0) + p_shifted(1) * p_shifted(1) + p_shifted(2) * p_shifted(2));
+        float normalized_p1 = (p(1)) / norm;
+        if (J_point)
+        {
+
+
+        }
+        if (J_K)
+        {
+  
+        }
+
+        return image_point;
     }
 
-    // unprojection here is from azimuth elevation to world
-    HD inline Vec3 unproject(const Vec2& ip, T depth) const
-    {
-        T azimuth   = (ip(0) - cx) * fx * M_PI;
-        T elevation = -(ip(1) - cy) * fy * M_PI + s;
-        T x         = depth * cos(azimuth) * cos(elevation);
-        T y         = -depth * sin(azimuth) * cos(elevation);
-        T z         = depth * sin(elevation) + s;
-        return {x, y, z};
-    }
-
-    /*HD inline Vec2 normalizedToImage(const Vec2& p) const { 
-        Vec3 p3 = {p(0), p(1), 1};
-        return project(p3);
-    }*/
 };
 
-//write type conversion from intrinsics to spherical
+
 
 
 using SphericalParametersd = SphericalParameters<double>;
 using SphericalParametersf = SphericalParameters<float>;
 
-
+template <typename T>
+std::ostream& operator<<(std::ostream& strm, const SphericalParameters<T> intr)
+{
+    strm << intr.coeffs().transpose();
+    return strm;
+}
 
 }  // namespace Saiga
