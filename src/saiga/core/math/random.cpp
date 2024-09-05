@@ -8,10 +8,11 @@
 
 #include "saiga/core/util/assert.h"
 
+#include <algorithm>
 #include <chrono>
 #include <numeric>
 #include <random>
-#include <algorithm>
+#include <thread>
 
 namespace Saiga
 {
@@ -19,7 +20,8 @@ namespace Random
 {
 std::mt19937& generator()
 {
-    static thread_local std::mt19937 gen(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+    static thread_local std::mt19937 gen(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) *
+                                         (std::hash<std::thread::id>{}(std::this_thread::get_id()) + 1));
     return gen;
 }
 
@@ -89,8 +91,16 @@ double gaussRand(double mean, double stddev)
 
 std::vector<int> uniqueIndices(int sampleCount, int indexSize)
 {
-    SAIGA_ASSERT(sampleCount <= indexSize);
-
+    if (sampleCount >= indexSize)
+    {
+        // just return all
+        std::vector<int> data;
+        for (int i = 0; i < indexSize; ++i)
+        {
+            data.push_back(i);
+        }
+        return data;
+    }
     std::vector<bool> used(indexSize, false);
     std::vector<int> data(sampleCount);
 

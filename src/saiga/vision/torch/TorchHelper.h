@@ -71,14 +71,45 @@ inline std::vector<int64_t> IndexToCoordinate(int64_t index, std::vector<int64_t
     return result;
 }
 
+// input:
+//      image [3, ...]
+//      mask  [1, ...]
+// output:
+//      image [3, ...]
+inline torch::Tensor SetMaskToColor(torch::Tensor image, torch::Tensor mask, vec3 color)
+{
+    if (mask.dim() == image.dim() - 1)
+    {
+        mask = mask.unsqueeze(0);
+    }
+    mask          = mask.to(image.dtype()).to(image.device());
+    auto inv_mask = 1 - mask;
+
+    // set mask to 0
+    image = image * inv_mask;
+
+    std::vector<int64_t> color_sizes(image.dim(), 1);
+    color_sizes[0] = 3;
+    torch::Tensor color_tensor =
+        torch::from_blob(color.data(), color_sizes, torch::kFloat).to(image.dtype()).to(image.device());
+
+    // add color to image
+    image = image + mask * color_tensor;
+    return image;
+}
+
 inline std::string TensorInfo(at::Tensor t)
 {
+    torch::NoGradGuard ngg;
     std::stringstream strm;
     if (!t.defined())
     {
         strm << "[undefined tensor]";
         return strm.str();
     }
+    auto device    = t.device();
+    auto requ_grad = t.requires_grad();
+    void* ptr      = t.data_ptr();
 
     if (t.numel() == 0)
     {
@@ -87,7 +118,9 @@ inline std::string TensorInfo(at::Tensor t)
     }
 
     auto type = t.dtype();
-    if (t.numel() < int64_t(1000) * 1000 * 500)
+
+    // below 1MB size
+    if (t.numel() * t.element_size() < int64_t(1000) * 1000)
     {
         if (t.dtype() == at::kFloat || t.dtype() == at::kHalf)
         {
@@ -95,45 +128,26 @@ inline std::string TensorInfo(at::Tensor t)
         }
     }
 
-    // double mi   = t.min().item().toDouble();
-    double mi      = 0;
-    int64_t mi_ind = 0;
-    std::vector<int64_t> mi_coords;
-    if (t.is_contiguous())
-    {
-        auto [mi_t, mi_ind_t] = t.view({-1}).min(0);
-        mi                    = mi_t.item<double>();
-        mi_ind                = mi_ind_t.item<int64_t>();
-        mi_coords             = IndexToCoordinate(mi_ind, t.sizes().vec());
-    }
-
+    double mi   = t.min().item().toDouble();
     double ma   = t.max().item().toDouble();
-    double mean = 0;
     double sum  = t.sum().item().toDouble();
+    double mean = sum / t.numel();
     double sdev = 0;
-
-    if (t.dtype() == at::kDouble)
+    if (t.scalar_type() == torch::kFloat32)
     {
-        mean = t.mean().item().toDouble();
         sdev = t.std().item().toDouble();
     }
 
     if (t.dim() == 0 && t.numel() == 1)
     {
-        strm << "Scalar Tensor " << type << " " << t.device() << " req-grad " << t.requires_grad() << " Value: " << mi;
+        strm << "Scalar Tensor " << type << " " << device << " req-grad " << requ_grad << " Value: " << mi;
     }
     else
     {
-        strm << "Tensor " << t.sizes() << " " << type << " " << t.device() << " Min/Max " << mi << " " << ma << " Mean "
-             << mean << " Sum " << sum << " sdev " << sdev << " req-grad " << t.requires_grad();
+        strm << "Tensor " << t.sizes() << " " << t.strides() << " " << type << " " << device << " Min/Max " << mi << " "
+             << ma << " Mean " << mean << " Sum " << sum << " sdev " << sdev << " req-grad " << requ_grad << " ptr "
+             << ptr;
     }
-
-    strm << " Min-Coords: [";
-    for (auto c : mi_coords)
-    {
-        strm << c << ", ";
-    }
-    strm << "]";
 
     return strm.str();
 }

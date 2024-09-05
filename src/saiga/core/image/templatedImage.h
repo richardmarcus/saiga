@@ -27,7 +27,8 @@ class TemplatedImage : public Image
         auto res = load(file);
         if (!res)
         {
-            SAIGA_EXIT_ERROR("Could not load file " + file);
+            //SAIGA_EXIT_ERROR("Could not load file " + file);
+            std::cerr << "Could not load file '" << file << "'\n";
         }
     }
 
@@ -43,6 +44,7 @@ class TemplatedImage : public Image
     void create(int h, int w, int p) { Image::create(h, w, p, TType::type); }
 
     inline T& operator()(int y, int x) { return rowPtr(y)[x]; }
+    inline const T& operator()(int y, int x) const { return rowPtr(y)[x]; }
 
 
     inline T* rowPtr(int y)
@@ -50,9 +52,13 @@ class TemplatedImage : public Image
         auto ptr = data8() + y * pitchBytes;
         return reinterpret_cast<T*>(ptr);
     }
+    inline const T* rowPtr(int y) const
+    {
+        auto ptr = data8() + y * pitchBytes;
+        return reinterpret_cast<const T*>(ptr);
+    }
 
     ImageView<T> getImageView() { return Image::getImageView<T>(); }
-
     ImageView<const T> getConstImageView() const { return Image::getConstImageView<T>(); }
 
 
