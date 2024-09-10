@@ -345,31 +345,17 @@ struct SphericalParameters
     HD inline Vec2 toPano(const Vec3& p) const
     {
 
-        float azimuth = 0.5- atan2f(-p(2), p(0))/(fx*M_PI)+ cx;
-        Vec3 p_shifted = p;
-        p_shifted(1) = -(p(1));
-        float elevation = asinf(normalize(p_shifted)(1)) / (fy * M_PI) - cy +1;
+        float azimuth = atan2f(-p(2), p(0))/(fx*M_PI)+cx+0.5;
+        float elevation = asinf(normalize(p)(1)) / (fy*M_PI) +cy;
         return {azimuth, elevation};
 
     }
 
-    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 2>* J_point, Matrix<float, 2, 5>* J_K) const
+    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 4>* J_spherical) const
     {
         const Vec2 image_point = toPano(p);
 
-        Vec3 p_shifted = p;
-        float norm = sqrt(p_shifted(0) * p_shifted(0) + p_shifted(1) * p_shifted(1) + p_shifted(2) * p_shifted(2));
-        float normalized_p1 = (p(1)) / norm;
-        if (J_point)
-        {
-
-
-        }
-        if (J_K)
-        {
-  
-        }
-
+    
         return image_point;
     }
 
