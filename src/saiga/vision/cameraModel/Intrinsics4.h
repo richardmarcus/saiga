@@ -320,24 +320,14 @@ struct SphericalParameters
         if (J_point)
         {
             (*J_point)(0, 0) = fx;
-            (*J_point)(0, 1) = s;
+            (*J_point)(0, 1) = 0;
             (*J_point)(1, 0) = 0;
             (*J_point)(1, 1) = fy;
         }
 
         if (J_K)
         {
-            (*J_K)(0, 0) = p(0);
-            (*J_K)(0, 1) = 0;
-            (*J_K)(0, 2) = 1;
-            (*J_K)(0, 3) = 0;
-            (*J_K)(0, 4) = p(1);
 
-            (*J_K)(1, 0) = 0;
-            (*J_K)(1, 1) = p(1);
-            (*J_K)(1, 2) = 0;
-            (*J_K)(1, 3) = 1;
-            (*J_K)(1, 4) = 0;
         }
 
         return image_point;
@@ -351,9 +341,30 @@ struct SphericalParameters
 
     }
 
-    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 4>* J_spherical) const
+    HD inline Vec2 toPano(const Vec3& p, Matrix<T, 2, 3>* J_spherical) const
     {
         const Vec2 image_point = toPano(p);
+
+        T norm_p = p.norm();
+         // Compute azimuth partial derivatives
+        T atan2_der_p0 = p(2) / (p(0) * p(0) + p(2) * p(2));
+        T atan2_der_p2 = -p(0) / (p(0) * p(0) + p(2) * p(2));
+
+        (*J_spherical)(0, 0) = atan2_der_p0 / (fx * M_PI);  // Partial derivative of azimuth w.r.t. p(0)
+        (*J_spherical)(0, 1) = 0;                         // Partial derivative of azimuth w.r.t. p(1)
+        (*J_spherical)(0, 2) = atan2_der_p2 / (fx * M_PI);  // Partial derivative of azimuth w.r.t. p(2)
+
+        // Compute elevation partial derivatives
+        T sin_term = p(1) / norm_p;
+        T sqrt_term = std::sqrt(1 - sin_term * sin_term);
+
+        T asinf_der_p0 = -p(0) * p(1) / (norm_p * norm_p * norm_p * sqrt_term);
+        T asinf_der_p1 = (norm_p * norm_p - p(1) * p(1)) / (norm_p * norm_p * norm_p * sqrt_term);
+        T asinf_der_p2 = -p(1) * p(2) / (norm_p * norm_p * norm_p * sqrt_term);
+
+        (*J_spherical)(1, 0) = asinf_der_p0 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(0)
+        (*J_spherical)(1, 1) = asinf_der_p1 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(1)
+        (*J_spherical)(1, 2) = asinf_der_p2 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(2)
 
     
         return image_point;
