@@ -11,6 +11,12 @@
 
 namespace Saiga
 {
+
+
+#define IM_PI                           3.14159265358979323846f
+// Forward declaration of SphericalParameters
+template <typename T>
+struct SphericalParameters;
 // Basic Intrinsics Matrix K used in the pinhole camera model.
 //
 // |  fx   s   cx  |
@@ -39,6 +45,19 @@ struct IntrinsicsPinhole
     HD inline IntrinsicsPinhole(T fx, T fy, T cx, T cy, T s) : fx(fx), fy(fy), cx(cx), cy(cy), s(s) {}
     HD inline IntrinsicsPinhole(const Vec5& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)), s(v(4)) {}
     HD inline IntrinsicsPinhole(const Mat3& K) : fx(K(0, 0)), fy(K(1, 1)), cx(K(0, 2)), cy(K(1, 2)), s(K(0, 1)) {}
+
+
+    /*
+    // Conversion method to SphericalParameters
+    HD inline SphericalParameters<T> toSpherical() const {
+        T fx_spherical = this->fx;  
+        T fy_spherical = this->fy;
+        T cx_spherical = this->cx;  // Copy the principal point offsets directly
+        T cy_spherical = this->cy;
+        T s_spherical  = this->s;   // Use the skew directly
+
+        return SphericalParameters<T>(fx_spherical, fy_spherical, cx_spherical, cy_spherical, s_spherical);
+    }*/
 
     HD inline IntrinsicsPinhole<T> inverse() const
     {
@@ -81,6 +100,7 @@ struct IntrinsicsPinhole
 
 
     [[nodiscard]] HD inline IntrinsicsPinhole<T> scale(T s) const { return IntrinsicsPinhole<T>(Vec5(coeffs() * s)); }
+    
 
 
     HD inline Vec2 normalizedToImage(const Vec2& p, Mat2* J_point, Matrix<T, 2, 5>* J_K) const
@@ -112,6 +132,8 @@ struct IntrinsicsPinhole
 
         return image_point;
     }
+
+
 
 
     HD inline Mat3 matrix() const
@@ -171,6 +193,8 @@ HD inline IntrinsicsPinhole<T> operator*(const IntrinsicsPinhole<T>& l, const In
 
 using IntrinsicsPinholed = IntrinsicsPinhole<double>;
 using IntrinsicsPinholef = IntrinsicsPinhole<float>;
+
+
 
 template <typename T>
 std::ostream& operator<<(std::ostream& strm, const IntrinsicsPinhole<T> intr)
@@ -263,6 +287,91 @@ std::ostream& operator<<(std::ostream& strm, const StereoCamera4Base<T> intr)
     return strm;
 }
 
+// intrinsics are used to convert between pixel coordinates and world coordinates
+// inverse intrinsics do world to pixel
+template <typename T>
+struct SphericalParameters
+{
+    using Vec4 = Eigen::Matrix<T, 4, 1>;
+    // f is lidar fov, c is offset, both in rad/pi, s = center_offset
+    T fx = 2, fy = 33.8/180;
+    T cx = 0, cy = 0.0801;
 
+    HD inline SphericalParameters() {}
+    HD inline SphericalParameters(T fx, T fy, T cx, T cy) : fx(fx), fy(fy), cx(cx), cy(cy) {}
+    HD inline SphericalParameters(const Vec4& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)) {}
+
+
+    HD inline Vec4 coeffs() const { return {fx, fy, cx, cy}; }
+    HD inline void coeffs(const Vec4& v) { (*this) = v; }
+    template <typename G>
+    HD inline SphericalParameters<G> cast() const
+    {
+        return {(G)fx, (G)fy, (G)cx, (G)cy};
+    }
+
+    //works if we just want to apply zoom and offset, just leave out s
+    HD inline Vec2 normalizedToImage(const Vec2& p) const { return {fx * p(0)+ cx, fy * p(1) + cy}; }
+
+    HD inline Vec2 normalizedToImage(const Vec2& p, Mat2* J_point, Matrix<T, 2, 5>* J_K) const
+    {
+        const Vec2 image_point = normalizedToImage(p);
+
+        if (J_point)
+        {
+            (*J_point)(0, 0) = fx;
+            (*J_point)(0, 1) = s;
+            (*J_point)(1, 0) = 0;
+            (*J_point)(1, 1) = fy;
+        }
+
+        if (J_K)
+        {
+            (*J_K)(0, 0) = p(0);
+            (*J_K)(0, 1) = 0;
+            (*J_K)(0, 2) = 1;
+            (*J_K)(0, 3) = 0;
+            (*J_K)(0, 4) = p(1);
+
+            (*J_K)(1, 0) = 0;
+            (*J_K)(1, 1) = p(1);
+            (*J_K)(1, 2) = 0;
+            (*J_K)(1, 3) = 1;
+            (*J_K)(1, 4) = 0;
+        }
+
+        return image_point;
+    }
+    HD inline Vec2 toPano(const Vec3& p) const
+    {
+
+        float azimuth = atan2f(-p(2), p(0))/(fx*M_PI)+cx+0.5;
+        float elevation = asinf(normalize(p)(1)) / (fy*M_PI) +cy;
+        return {azimuth, elevation};
+
+    }
+
+    HD inline Vec2 toPano(const Vec3& p, Matrix<float, 2, 4>* J_spherical) const
+    {
+        const Vec2 image_point = toPano(p);
+
+    
+        return image_point;
+    }
+
+};
+
+
+
+
+using SphericalParametersd = SphericalParameters<double>;
+using SphericalParametersf = SphericalParameters<float>;
+
+template <typename T>
+std::ostream& operator<<(std::ostream& strm, const SphericalParameters<T> intr)
+{
+    strm << intr.coeffs().transpose();
+    return strm;
+}
 
 }  // namespace Saiga
