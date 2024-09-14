@@ -292,22 +292,23 @@ std::ostream& operator<<(std::ostream& strm, const StereoCamera4Base<T> intr)
 template <typename T>
 struct SphericalParameters
 {
-    using Vec4 = Eigen::Matrix<T, 4, 1>;
+    using Vec6 = Eigen::Matrix<T, 6, 1>;
     // f is lidar fov, c is offset, both in rad/pi, s = center_offset
     T fx = 2, fy = 33.8/180;
     T cx = 0, cy = 0.0801;
+    T w = 1024, h = 64;
 
     HD inline SphericalParameters() {}
-    HD inline SphericalParameters(T fx, T fy, T cx, T cy) : fx(fx), fy(fy), cx(cx), cy(cy) {}
-    HD inline SphericalParameters(const Vec4& v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)) {}
+    HD inline SphericalParameters(T fx, T fy, T cx, T cy, T w, T h) : fx(fx), fy(fy), cx(cx), cy(cy), w(w), h(h) {}
+    HD inline SphericalParameters(const Vec6 &v) : fx(v(0)), fy(v(1)), cx(v(2)), cy(v(3)), w(v(4)), h(v(5)) {}
 
 
-    HD inline Vec4 coeffs() const { return {fx, fy, cx, cy}; }
-    HD inline void coeffs(const Vec4& v) { (*this) = v; }
+    HD inline Vec6 coeffs() const { return {fx, fy, cx, cy, w, h}; }
+    HD inline void coeffs(const Vec6& v) { (*this) = v; }
     template <typename G>
     HD inline SphericalParameters<G> cast() const
     {
-        return {(G)fx, (G)fy, (G)cx, (G)cy};
+        return {(G)fx, (G)fy, (G)cx, (G)cy, (G)w, (G)h};
     }
 
     //works if we just want to apply zoom and offset, just leave out s
@@ -334,11 +335,14 @@ struct SphericalParameters
     }
     HD inline Vec2 toPano(const Vec3& p) const
     {
+        float azimuth = atan2f(-p(2), p(0)) / (fx * M_PI) + cx + 0.5;
+        float elevation = asinf(normalize(p)(1)) / (fy * M_PI) + cy;
 
-        float azimuth = atan2f(-p(2), p(0))/(fx*M_PI)+cx+0.5;
-        float elevation = asinf(normalize(p)(1)) / (fy*M_PI) +cy;
+        // Multiply azimuth by w and elevation by h
+        azimuth *= w;
+        elevation *= h;
+
         return {azimuth, elevation};
-
     }
 
     HD inline Vec2 toPano(const Vec3& p, Matrix<T, 2, 3>* J_spherical) const
@@ -346,13 +350,15 @@ struct SphericalParameters
         const Vec2 image_point = toPano(p);
 
         T norm_p = p.norm();
-         // Compute azimuth partial derivatives
+
+        // Compute azimuth partial derivatives
         T atan2_der_p0 = p(2) / (p(0) * p(0) + p(2) * p(2));
         T atan2_der_p2 = -p(0) / (p(0) * p(0) + p(2) * p(2));
 
-        (*J_spherical)(0, 0) = atan2_der_p0 / (fx * M_PI);  // Partial derivative of azimuth w.r.t. p(0)
-        (*J_spherical)(0, 1) = 0;                         // Partial derivative of azimuth w.r.t. p(1)
-        (*J_spherical)(0, 2) = atan2_der_p2 / (fx * M_PI);  // Partial derivative of azimuth w.r.t. p(2)
+        // Multiply azimuth derivative by w
+        (*J_spherical)(0, 0) = (atan2_der_p0 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(0)
+        (*J_spherical)(0, 1) = 0;                                 // Partial derivative of azimuth w.r.t. p(1)
+        (*J_spherical)(0, 2) = (atan2_der_p2 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(2)
 
         // Compute elevation partial derivatives
         T sin_term = p(1) / norm_p;
@@ -362,11 +368,11 @@ struct SphericalParameters
         T asinf_der_p1 = (norm_p * norm_p - p(1) * p(1)) / (norm_p * norm_p * norm_p * sqrt_term);
         T asinf_der_p2 = -p(1) * p(2) / (norm_p * norm_p * norm_p * sqrt_term);
 
-        (*J_spherical)(1, 0) = asinf_der_p0 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(0)
-        (*J_spherical)(1, 1) = asinf_der_p1 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(1)
-        (*J_spherical)(1, 2) = asinf_der_p2 / (fy * M_PI);  // Partial derivative of elevation w.r.t. p(2)
+        // Multiply elevation derivative by h
+        (*J_spherical)(1, 0) = (asinf_der_p0 / (fy * M_PI)) * h;  // Partial derivative of elevation w.r.t. p(0)
+        (*J_spherical)(1, 1) = (asinf_der_p1 / (fy * M_PI)) * h;  // Partial derivative of elevation w.r.t. p(1)
+        (*J_spherical)(1, 2) = (asinf_der_p2 / (fy * M_PI)) * h;  // Partial derivative of elevation w.r.t. p(2)
 
-    
         return image_point;
     }
 

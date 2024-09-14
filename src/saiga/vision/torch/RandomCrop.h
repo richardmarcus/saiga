@@ -157,6 +157,7 @@ inline IntrinsicsPinholef RandomCylinderCrop(ivec2 image_size_input, ivec2 image
         //cylinder image starts at the top left corner
         if (!translate_to_border)
         {
+            //TODO_C actually do something different compared to img here?
             vec2 border = image_size_crop.cast<float>() * 0.5f;
             min_sample  = border;
             max_sample  = max_translation + 2*border;
@@ -184,8 +185,8 @@ inline IntrinsicsPinholef RandomCylinderCrop(ivec2 image_size_input, ivec2 image
     K_crop.fx = zoom;
     K_crop.fy = zoom;
 
-    K_crop.cx = delta(0)/image_size_input(0);
-    K_crop.cy = delta(1)/image_size_input(1);
+    K_crop.cx = delta(0);
+    K_crop.cy = delta(1);
     K_crop.s = 0.0 ;
 
     return K_crop;
