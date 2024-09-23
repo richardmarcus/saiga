@@ -352,22 +352,35 @@ struct SphericalParameters
         T norm_p = p.norm();
 
         // Compute azimuth partial derivatives
-        T atan2_der_p0 = p(0) / (p(2) * p(2) + p(0) * p(0));
-        T atan2_der_p2 = p(2) / (p(2) * p(2) + p(0) * p(0));
+
+        T atan2_der_p0 = p(2) / (p(2) * p(2) + p(0) * p(0));
+        T atan2_der_p2 = -p(0) / (p(2) * p(2) + p(0) * p(0));
+        //- change?
 
         // Multiply azimuth derivative by w
-        (*J_spherical)(0, 0) = (atan2_der_p0 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(2)
+        (*J_spherical)(0, 0) = (atan2_der_p2 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(2)
         (*J_spherical)(0, 1) = 0;                                 // Partial derivative of azimuth w.r.t. p(1)
-        (*J_spherical)(0, 2) = (atan2_der_p2 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(0)
+        (*J_spherical)(0, 2) = (atan2_der_p0 / (fx * M_PI)) * w;  // Partial derivative of azimuth w.r.t. p(0)
 
+        T sqrt_frac = std::sqrt((p(0)*p(0) + p(2)*p(2))/(norm_p*norm_p));
+        T sqrt_norm = std::sqrt(norm_p*norm_p);
+        T three_half = norm_p*norm_p*norm_p;
+
+        T asinf_der_p0 = -p(0) * p(1) / (three_half * sqrt_frac);
+        T asinf_der_p1 = sqrt_frac / sqrt_norm;
+        T asinf_der_p2 = -p(2) * p(1) / (three_half * sqrt_frac);
+        
+           /*
         // Compute elevation partial derivatives
         T sin_term = p(1) / norm_p;
         T sqrt_term = std::sqrt(1 - sin_term * sin_term);
 
-        T asinf_der_p0 = p(2) * p(1) / (norm_p * norm_p * norm_p * sqrt_term);
+        T asinf_der_p2 = -p(2) * p(1) / (norm_p * norm_p * norm_p * sqrt_term);
+        //-
         T asinf_der_p1 = (norm_p * norm_p - p(1) * p(1)) / (norm_p * norm_p * norm_p * sqrt_term);
-        T asinf_der_p2 = p(1) * p(0) / (norm_p * norm_p * norm_p * sqrt_term);
-
+        T asinf_der_p0 = -p(1) * p(0) / (norm_p * norm_p * norm_p * sqrt_term);
+        //-
+*/
         // Multiply elevation derivative by h
         (*J_spherical)(1, 0) = (asinf_der_p0 / (fy * M_PI)) * h;  // Partial derivative of elevation w.r.t. p(2)
         (*J_spherical)(1, 1) = (asinf_der_p1 / (fy * M_PI)) * h;  // Partial derivative of elevation w.r.t. p(1)
