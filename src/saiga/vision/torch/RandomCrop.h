@@ -12,6 +12,127 @@
 
 namespace Saiga
 {
+
+inline IntrinsicsPinholef RandomImageCropX(ivec2 image_size_input, ivec2 image_size_crop, bool translate_to_border,
+                                           bool random_translation, bool gaussian_sampling = false,
+                                           vec2 min_max_zoom = vec2(1, 1))
+{
+    IntrinsicsPinholef K_crop = IntrinsicsPinholef();
+
+    float delta_x = 0.0f;
+    float zoom = 1.0f;
+
+    {
+        // Compute the minimum zoom level, considering only the x-axis.
+        float min_zoom_x = static_cast<float>(image_size_crop.x()) / image_size_input.x();
+        
+        float cmin_zoom = std::max(min_zoom_x, min_max_zoom(0));
+        float cmax_zoom = min_max_zoom(1);
+
+        zoom = Random::sampleDouble(cmin_zoom, cmax_zoom);
+    }
+
+    // Max translation along x-axis (no translation along y-axis).
+    float max_translation_x = static_cast<float>(image_size_input.x()) * zoom - image_size_crop.x();
+
+    if (random_translation)
+    {
+        float min_sample_x = 0.0f;
+        float max_sample_x = max_translation_x;
+
+        if (translate_to_border)
+        {
+            float border_x = image_size_crop.x() * 0.5f;
+            min_sample_x   = -border_x;
+            max_sample_x   = max_translation_x + border_x;
+        }
+
+        if (!gaussian_sampling)
+        {
+            delta_x = Random::sampleDouble(min_sample_x, max_sample_x);
+        }
+        else
+        {
+            float len_2_x = 0.5f * (max_sample_x - min_sample_x);
+            delta_x = Random::gaussRand(0, 0.5) * len_2_x + len_2_x + min_sample_x;
+        }
+
+        // Restrict delta to the valid range along x-axis.
+        delta_x = std::max(0.0f, std::min(delta_x, max_translation_x));
+    }
+    else
+    {
+        delta_x = max_translation_x * 0.5f;
+    }
+
+    // Set zoom for x-axis and keep y-axis unchanged.
+    K_crop.fx = zoom;
+    K_crop.fy = zoom;  // We still zoom on both axes.
+
+    // Set translation for x-axis only, fix y-axis translation to 0.
+    K_crop.cx = -delta_x;
+    K_crop.cy = 0.0f;
+
+    return K_crop;
+}
+
+inline std::vector<IntrinsicsPinholef> RandomImageCropX(int N, int tries_per_crop, ivec2 image_size_input,
+                                                        ivec2 image_size_crop, bool translate_to_border,
+                                                        bool random_translation, bool gaussian_sampling = false,
+                                                        vec2 min_max_zoom                  = vec2(1, 1),
+                                                        int max_distance_from_image_center = -1)
+{
+    std::vector<float> centers_x;  // Store x-axis centers only.
+    std::vector<IntrinsicsPinholef> res;
+    
+    for (int i = 0; i < N; ++i)
+    {
+        IntrinsicsPinholef best;
+        float best_cx = 0.0f;
+        float best_dis = -1;
+
+        for (int j = 0; j < tries_per_crop; ++j)
+        {
+            auto intr = RandomImageCropX(image_size_input, image_size_crop, translate_to_border, random_translation,
+                                         gaussian_sampling, min_max_zoom);
+
+            // Compute center along x-axis only.
+            float cx = image_size_crop.x() * 0.5f;
+            cx       = intr.inverse().normalizedToImage(vec2(cx, 0)).x();  // Only use x component.
+
+            float dis = 3573575737;
+            for (const auto& cx2 : centers_x)
+            {
+                float d = (cx - cx2) * (cx - cx2);  // Squared distance along x-axis.
+                if (d < dis)
+                {
+                    dis = d;
+                }
+            }
+
+            if (centers_x.empty()) dis = 0;
+
+            // Check if the x-center is within the allowed region.
+            bool inside_sampling_region = max_distance_from_image_center < 0 ||
+                                          std::abs(cx - image_size_input.x() * 0.5f) < max_distance_from_image_center;
+
+            // Select the best crop.
+            if (((j == 0 || dis > best_dis) && inside_sampling_region) || (j == (tries_per_crop - 1) && best_dis == -1))
+            {
+                best     = intr;
+                best_cx  = cx;
+                best_dis = dis;
+            }
+        }
+
+        centers_x.push_back(best_cx);
+        res.push_back(best);
+    }
+    return res;
+}
+
+
+
 // Computes the image crop as a homography matrix (returned as upper diagonal matrix).
 inline IntrinsicsPinholef RandomImageCrop(ivec2 image_size_input, ivec2 image_size_crop, bool translate_to_border,
                                           bool random_translation, bool gaussian_sampling = false,

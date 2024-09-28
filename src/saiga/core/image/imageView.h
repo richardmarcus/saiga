@@ -214,6 +214,79 @@ struct SAIGA_TEMPLATE ImageView : public ImageBase
 
         return ttf.fromFloat(res);
     }
+    // bilinear interpolated pixel with clamp to edge boundary and ignoring black pixels
+    HD inline T inter_mask(float sy, float sx) const
+    {
+        int x0 = iFloor(sx);
+        int y0 = iFloor(sy);
+
+        // Clamp to edge boundary
+        if (x0 < 0) { x0 = 0; }
+        if (x0 >= width) { x0 = width - 1; }
+        if (y0 < 0) { y0 = 0; }
+        if (y0 >= height) { y0 = height - 1; }
+
+    #ifdef SAIGA_ON_DEVICE
+        int x1 = std::min(x0 + 1, width - 1);
+        int y1 = std::min(y0 + 1, height - 1);
+    #else
+        int x1 = std::min(x0 + 1, width - 1);
+        int y1 = std::min(y0 + 1, height - 1);
+    #endif
+
+        // Convert the texel to a floating-point type for interpolation
+        TexelFloatConverter<T, false> ttf;
+
+        // Fetch pixels
+        auto b00 = ttf.toFloat((*this)(y0, x0));
+        auto b01 = ttf.toFloat((*this)(y0, x1));
+        auto b10 = ttf.toFloat((*this)(y1, x0));
+        auto b11 = ttf.toFloat((*this)(y1, x1));
+
+        // Check if each pixel is black (assuming black is RGB (0, 0, 0) or 0 for grayscale)
+        bool valid_b00 = b00[0] != 0;
+        bool valid_b01 = b01[0] != 0;
+        bool valid_b10 = b10[0] != 0;
+        bool valid_b11 = b10[0] != 0;
+
+        // Compute the weights based on the distances
+        auto w00 = (x1 - sx) * (y1 - sy);
+        auto w01 = (sx - x0) * (y1 - sy);
+        auto w10 = (x1 - sx) * (sy - y0);
+        auto w11 = (sx - x0) * (sy - y0);
+
+        // Sum the weights of the valid pixels
+        auto totalWeight = 0.0f;
+        typename TexelFloatConverter<T, false>::FloatType res = {};
+
+        if (valid_b00) {
+            res += b00 * w00;
+            totalWeight += w00;
+        }
+        if (valid_b01) {
+            res += b01 * w01;
+            totalWeight += w01;
+        }
+        if (valid_b10) {
+            res += b10 * w10;
+            totalWeight += w10;
+        }
+        if (valid_b11) {
+            res += b11 * w11;
+            totalWeight += w11;
+        }
+
+        // If no valid pixels are found, return black
+        if (totalWeight == 0.0f) {
+            return ttf.fromFloat(b00); // Return black (or equivalent value)
+        }
+
+        // Normalize the result by the total weight
+        res /= totalWeight;
+
+        return ttf.fromFloat(res);
+    }
+
 
     template <typename AT>
     HD inline void multWithScalar(AT a)
