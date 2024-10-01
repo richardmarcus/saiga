@@ -146,7 +146,7 @@ inline IntrinsicsPinholef RandomImageCrop(ivec2 image_size_input, ivec2 image_si
     {
         vec2 min_zoom_xy = image_size_crop.array().cast<float>() / image_size_input.array().cast<float>();
 
-        float cmin_zoom = std::max({min_zoom_xy(0), min_zoom_xy(1), min_max_zoom(0)});
+        float cmin_zoom = min_max_zoom(0);//std::max({min_zoom_xy(0), min_zoom_xy(1), min_max_zoom(0)});
         float cmax_zoom = min_max_zoom(1);
 
         zoom = Random::sampleDouble(cmin_zoom, cmax_zoom);

@@ -286,6 +286,273 @@ struct SAIGA_TEMPLATE ImageView : public ImageBase
 
         return ttf.fromFloat(res);
     }
+    inline float gaussian_weight(float dist_sq, float sigma) {
+        // Calculate Gaussian weight for the given squared distance and sigma.
+        return std::exp(-dist_sq / (2.0f * sigma * sigma));
+    }
+
+
+    HD inline T inter_gaussian1(float sy, float sx, int scale_factor_x, int scale_factor_y) {
+
+        // Floor the floating point coordinates to get the top-left corner (x0, y0)
+        int x0 = std::floor(sx);
+        int y0 = std::floor(sy);
+
+        // Clamp to valid range
+        x0 = std::max(0, std::min(x0, width - 1));
+        y0 = std::max(0, std::min(y0, height - 1));
+
+        // Determine the neighborhood based on scale factors
+        int x_start = std::max(0, x0 - scale_factor_x / 2);
+        int x_end = std::min(width - 1, x0 + scale_factor_x / 2);
+        int y_start = std::max(0, y0 - scale_factor_y / 2);
+        int y_end = std::min(height - 1, y0 + scale_factor_y / 2);
+
+        // Initialize the result and total weight
+        TexelFloatConverter<T, false> ttf;  // Convert texels to floats
+        typename TexelFloatConverter<T, false>::FloatType res = {};  // Store result
+        float total_weight = 0.0f;
+
+        // Gaussian sigma values based on scale factors
+        float sigma_x = scale_factor_x / 2.0f;
+        float sigma_y = scale_factor_y / 2.0f;
+
+        // Iterate over the neighborhood
+        for (int y = y_start; y <= y_end; ++y) {
+            for (int x = x_start; x <= x_end; ++x) {
+                // Fetch the current pixel and convert to float
+                auto pixel = ttf.toFloat((*this)(y, x));
+
+                bool valid_pixel = pixel != 0;
+                // Check if the pixel is valid
+                if (valid_pixel) {
+                    // Compute the squared distance to the center (sx, sy)
+                    float dist_sq_x = (x - sx) * (x - sx);
+                    float dist_sq_y = (y - sy) * (y - sy);
+
+                    // Apply Gaussian weighting based on distance
+                    float weight_x = gaussian_weight(dist_sq_x, sigma_x);
+                    float weight_y = gaussian_weight(dist_sq_y, sigma_y);
+                    float weight = weight_x * weight_y;
+
+                    // Accumulate the weighted pixel
+                    res += pixel * weight;
+                    total_weight += weight;
+                }
+            }
+        }
+
+        // If no valid pixels were found, return black
+        if (total_weight == 0.0f) {
+            return ttf.fromFloat({});
+        }
+
+        // Normalize the result by the total weight
+        res /= total_weight;
+
+        return ttf.fromFloat(res);
+    }
+
+    HD inline T inter_gaussian3(float sy, float sx, int scale_factor_x, int scale_factor_y) {
+
+        // Floor the floating point coordinates to get the top-left corner (x0, y0)
+        int x0 = std::floor(sx);
+        int y0 = std::floor(sy);
+
+        // Clamp to valid range
+        x0 = std::max(0, std::min(x0, width - 1));
+        y0 = std::max(0, std::min(y0, height - 1));
+
+        // Determine the neighborhood based on scale factors
+        int x_start = std::max(0, x0 - scale_factor_x / 2);
+        int x_end = std::min(width - 1, x0 + scale_factor_x / 2);
+        int y_start = std::max(0, y0 - scale_factor_y / 2);
+        int y_end = std::min(height - 1, y0 + scale_factor_y / 2);
+
+        // Initialize the result and total weight
+        TexelFloatConverter<T, false> ttf;  // Convert texels to floats
+        typename TexelFloatConverter<T, false>::FloatType res = {};  // Store result
+        float total_weight = 0.0f;
+
+        // Gaussian sigma values based on scale factors
+        float sigma_x = scale_factor_x / 2.0f;
+        float sigma_y = scale_factor_y / 2.0f;
+
+        // Iterate over the neighborhood
+        for (int y = y_start; y <= y_end; ++y) {
+            for (int x = x_start; x <= x_end; ++x) {
+                // Fetch the current pixel and convert to float
+                auto pixel = ttf.toFloat((*this)(y, x));
+
+                bool valid_pixel = pixel[0] != 0;
+                // Check if the pixel is valid
+                if (valid_pixel) {
+                    // Compute the squared distance to the center (sx, sy)
+                    float dist_sq_x = (x - sx) * (x - sx);
+                    float dist_sq_y = (y - sy) * (y - sy);
+
+                    // Apply Gaussian weighting based on distance
+                    float weight_x = gaussian_weight(dist_sq_x, sigma_x);
+                    float weight_y = gaussian_weight(dist_sq_y, sigma_y);
+                    float weight = weight_x * weight_y;
+
+                    // Accumulate the weighted pixel
+                    res += pixel * weight;
+                    total_weight += weight;
+                }
+            }
+        }
+
+        // If no valid pixels were found, return black
+        if (total_weight == 0.0f) {
+            return ttf.fromFloat({});
+        }
+
+        // Normalize the result by the total weight
+        res /= total_weight;
+
+        return ttf.fromFloat(res);
+    }
+    
+    HD inline T nn_mask_1(float sy, float sx, int scale_factor_x, int scale_factor_y) const
+    {
+        // Find the nearest integer pixel coordinates
+        int x0 = iFloor(sx);
+        int y0 = iFloor(sy);
+
+        // Clamp the coordinates to the image boundaries
+        if (x0 < 0) { x0 = 0; }
+        if (x0 >= width) { x0 = width - 1; }
+        if (y0 < 0) { y0 = 0; }
+        if (y0 >= height) { y0 = height - 1; }
+        // Determine the neighborhood size based on scale factors
+        int x_start = std::max(0, x0 - scale_factor_x / 2);
+        int x_end = std::min(width - 1, x0 + scale_factor_x / 2);
+        int y_start = std::max(0, y0 - scale_factor_y / 2);
+        int y_end = std::min(height - 1, y0 + scale_factor_y / 2);
+
+        // Convert the texel to a floating-point type for interpolation
+        TexelFloatConverter<T, false> ttf;
+
+        // Parameters for the Gaussian weight
+        float sigma_x = scale_factor_x / 2.0f;
+        float sigma_y = scale_factor_y / 2.0f;
+        float two_sigma_x_squared = 2.0f * sigma_x * sigma_x;
+        float two_sigma_y_squared = 2.0f * sigma_y * sigma_y;
+
+        // Accumulate the weighted sum of valid pixels and the total weight
+        typename TexelFloatConverter<T, false>::FloatType weighted_sum_pixel = {};
+        float total_weight = 0.0f;
+
+        // Iterate over the neighborhood
+        for (int y = y_start; y <= y_end; ++y)
+        {
+            for (int x = x_start; x <= x_end; ++x)
+            {
+                // Fetch the current pixel
+                auto pixel = ttf.toFloat((*this)(y, x));
+
+                // Check if the pixel is valid (non-black)
+                bool valid_pixel = pixel != 0;
+
+                if (valid_pixel)
+                {
+                    // Calculate the squared distance to the center (sx, sy)
+                    float dist_x_squared = std::pow(x - sx, 2);
+                    float dist_y_squared = std::pow(y - sy, 2);
+
+                    // Compute the Gaussian weight for this pixel
+                    float weight = std::exp(-(dist_x_squared / two_sigma_x_squared + dist_y_squared / two_sigma_y_squared));
+
+                    // Accumulate the weighted pixel value
+                    weighted_sum_pixel += pixel * weight;
+                    total_weight += weight;
+                }
+            }
+        }
+
+        // If there are no valid pixels, return black or the original default
+        if (total_weight == 0.0f)
+        {
+            return ttf.fromFloat(weighted_sum_pixel);  // Return the default black or original closest pixel
+        }
+
+        // Normalize the result by the total weight
+        weighted_sum_pixel /= total_weight;
+
+        // Return the averaged pixel with Gaussian weighting
+        return ttf.fromFloat(weighted_sum_pixel);
+    }
+
+    HD inline T nn_mask_3(float sy, float sx, int scale_factor_x, int scale_factor_y) const
+    {
+        // Find the nearest integer pixel coordinates
+        int x0 = iFloor(sx);
+        int y0 = iFloor(sy);
+
+        // Clamp the coordinates to the image boundaries
+        if (x0 < 0) { x0 = 0; }
+        if (x0 >= width) { x0 = width - 1; }
+        if (y0 < 0) { y0 = 0; }
+        if (y0 >= height) { y0 = height - 1; }
+        // Determine the neighborhood size based on scale factors
+        int x_start = std::max(0, x0 - scale_factor_x / 2);
+        int x_end = std::min(width - 1, x0 + scale_factor_x / 2);
+        int y_start = std::max(0, y0 - scale_factor_y / 2);
+        int y_end = std::min(height - 1, y0 + scale_factor_y / 2);
+
+        // Convert the texel to a floating-point type for interpolation
+        TexelFloatConverter<T, false> ttf;
+
+        // Parameters for the Gaussian weight
+        float sigma_x = scale_factor_x / 2.0f;
+        float sigma_y = scale_factor_y / 2.0f;
+        float two_sigma_x_squared = 2.0f * sigma_x * sigma_x;
+        float two_sigma_y_squared = 2.0f * sigma_y * sigma_y;
+
+        // Accumulate the weighted sum of valid pixels and the total weight
+        typename TexelFloatConverter<T, false>::FloatType weighted_sum_pixel = {};
+        float total_weight = 0.0f;
+
+        // Iterate over the neighborhood
+        for (int y = y_start; y <= y_end; ++y)
+        {
+            for (int x = x_start; x <= x_end; ++x)
+            {
+                // Fetch the current pixel
+                auto pixel = ttf.toFloat((*this)(y, x));
+
+                // Check if the pixel is valid (non-black)
+                bool valid_pixel = pixel[0] != 0;
+
+                if (valid_pixel)
+                {
+                    // Calculate the squared distance to the center (sx, sy)
+                    float dist_x_squared = std::pow(x - sx, 2);
+                    float dist_y_squared = std::pow(y - sy, 2);
+
+                    // Compute the Gaussian weight for this pixel
+                    float weight = 1;//std::exp(-(dist_x_squared / two_sigma_x_squared + dist_y_squared / two_sigma_y_squared));
+
+                    // Accumulate the weighted pixel value
+                    weighted_sum_pixel += pixel * weight;
+                    total_weight += weight;
+                }
+            }
+        }
+
+        // If there are no valid pixels, return black or the original default
+        if (total_weight == 0.0f)
+        {
+            return ttf.toFloat((*this)(y0, x0));  // Return the default black or original closest pixel
+        }
+
+        // Normalize the result by the total weight
+        weighted_sum_pixel /= total_weight;
+
+        // Return the averaged pixel with Gaussian weighting
+        return ttf.fromFloat(weighted_sum_pixel);
+    }
 
 
     template <typename AT>
